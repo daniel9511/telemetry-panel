@@ -1,0 +1,44 @@
+# ==========================================
+# .gitignore - Panel de Telemetría Local
+# ==========================================
+
+# Entorno y Configuración Sensible
+.env
+.env.*
+!.env.example
+
+# Archivos de Telemetría y Logs de AMD (CSV/Log)
+# Se evita subir archivos temporales de telemetría y reportes locales de AMD Adrenalin
+*.csv
+*.log
+logs/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Entornos Virtuales y Empaquetado
+.venv/
+venv/
+env/
+ENV/
+dist/
+build/
+*.egg-info/
+
+# Configuraciones de Editores e IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Archivos del Sistema Operativo
+.DS_Store
+Thumbs.db
