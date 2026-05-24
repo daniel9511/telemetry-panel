@@ -42,3 +42,6 @@ build/
 # Archivos del Sistema Operativo
 .DS_Store
 Thumbs.db
+
+# archivos antigravity
+.antigravity

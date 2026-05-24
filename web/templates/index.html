@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Telemetría Local</title>
+    <!-- Auto-recarga cada 3 segundos, tal como se especifica en el documento -->
+    <meta http-equiv="refresh" content="3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="panel-container">
+        <h1>Panel de Telemetría (MVP)</h1>
+        
+        <div class="columns">
+            <div class="col">
+                <h2>Gaming & GPU</h2>
+                <p>FPS: <strong>{{ datos.fps }}</strong></p>
+            </div>
+            <div class="col">
+                <h2>Sistema</h2>
+                <p>Carga CPU: <strong>{{ datos.cpu_load }}%</strong></p>
+                <p>RAM Usada: <strong>{{ datos.ram_used }} GB</strong></p>
+            </div>
+            <div class="col">
+                <h2>Multimedia</h2>
+                <p>Reproduciendo: <strong>{{ datos.media_title }}</strong></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
