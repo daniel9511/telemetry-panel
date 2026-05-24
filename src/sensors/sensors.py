@@ -8,15 +8,16 @@ def get_cpu_load() -> float:
         float: Porcentaje de uso real de la CPU.
     """
     try:
-        # Consultamos Win32_Processor. En caso de haber múltiples sockets, calculamos el promedio.
+        # Consultamos el contador de rendimiento cacheado para evitar el pico de CPU
         cmd = [
-            'powershell.exe', 
-            '-NoProfile', 
-            '-Command', 
-            '(Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average'
+            'powershell.exe',
+            '-NoProfile',
+            '-Command',
+            '(Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter "Name=\'_Total\'").PercentProcessorTime'
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        # Reemplazamos coma por punto por si la configuración regional de Windows usa comas para decimales
+        
+        # Limpiamos los espacios y convertimos a flotante
         load = result.stdout.strip().replace(',', '.')
         return float(load) if load else 0.0
     except Exception as e:

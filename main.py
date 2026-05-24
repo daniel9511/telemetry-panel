@@ -14,7 +14,11 @@ def run_wsl_bridge():
         print(f"Advertencia: No se pudo ejecutar el script puente automáticamente: {e}")
 
 def main():
-    run_wsl_bridge()
+    # En modo debug, Flask se ejecuta dos veces (proceso principal y reloader).
+    # Solo ejecutamos el puente en el primer arranque para evitar colisiones en PowerShell.
+    if os.environ.get('WERKZEUG_RUN_MAIN') is None:
+        run_wsl_bridge()
+        
     print("Iniciando Servidor de Panel de Telemetría...")
     print("Accesible en red local: http://<tu-ip-local>:8080")
     app.run(host="0.0.0.0", port=8080, debug=True)
