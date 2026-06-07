@@ -110,8 +110,8 @@ uv run python -m src.sensors.sensors
 ```
 
 Acceder desde el navegador:
-- **Local:** `http://localhost:8090`
-- **Tablet (red local):** `http://<ip-del-pc>:8090`
+- **Local:** `http://localhost:7842`
+- **Tablet (red local):** `http://<ip-del-pc>:7842`
 
 ---
 

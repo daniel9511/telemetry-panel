@@ -103,7 +103,10 @@
                     <span id="media-title" class="media-title">Sin reproducción activa</span>
                 </div>
                 <div class="media-avatar">
-                    <img id="avatar-img" class="avatar-img" src="" alt="">
+                    <div class="avatar-float">
+                        <img id="avatar-a" class="avatar-img" src="" alt="">
+                        <img id="avatar-b" class="avatar-img" src="" alt="">
+                    </div>
                 </div>
             </div>
         </div>
@@ -207,8 +210,10 @@
             d.media_title || 'Sin reproducción activa';
     }
 
-    // Avatar — carga lista dinámica del servidor, rota cada 3 min
-    var avatarEl  = document.getElementById('avatar-img');
+    // Avatar — cross-fade entre dos slots (A/B) + movimiento flotante vía CSS
+    var avatarA     = document.getElementById('avatar-a');
+    var avatarB     = document.getElementById('avatar-b');
+    var activeSlot  = avatarA;   // slot visible actualmente
     var avatarQueue = [];
     var avatarIdx   = 0;
 
@@ -221,27 +226,38 @@
     }
 
     function showAvatar(src) {
-        avatarEl.onload  = function() { avatarEl.style.opacity = '1'; };
-        avatarEl.onerror = function() { avatarEl.style.opacity = '1'; };
-        avatarEl.src = src;
-        if (avatarEl.complete && avatarEl.naturalWidth > 0) avatarEl.style.opacity = '1';
+        // Carga inicial: muestra en el slot activo
+        activeSlot.onload  = function() { activeSlot.style.opacity = '1'; };
+        activeSlot.onerror = function() { activeSlot.style.opacity = '1'; };
+        activeSlot.src = src;
+        if (activeSlot.complete && activeSlot.naturalWidth > 0) activeSlot.style.opacity = '1';
     }
 
     function rotateAvatar() {
         if (!avatarQueue.length) return;
-        avatarEl.style.opacity = '0';
-        setTimeout(function() {
-            avatarIdx = (avatarIdx + 1) % avatarQueue.length;
-            if (avatarIdx === 0) shuffleArr(avatarQueue);
-            showAvatar('/avatar/' + encodeURIComponent(avatarQueue[avatarIdx]));
-        }, 500);
+        avatarIdx = (avatarIdx + 1) % avatarQueue.length;
+        if (avatarIdx === 0) shuffleArr(avatarQueue);
+
+        var nextSlot = (activeSlot === avatarA) ? avatarB : avatarA;
+        var src = '/avatar/' + encodeURIComponent(avatarQueue[avatarIdx]);
+
+        // El slot nuevo sube al frente antes de cargar
+        nextSlot.style.zIndex = '2';
+        activeSlot.style.zIndex = '1';
+
+        nextSlot.onload = function() {
+            nextSlot.style.opacity  = '1';    // entra el nuevo
+            activeSlot.style.opacity = '0';   // sale el viejo — simultáneo
+            activeSlot = nextSlot;
+        };
+        nextSlot.onerror = nextSlot.onload;
+        nextSlot.src = src;
     }
 
     fetch('/avatar/list').then(function(r) { return r.json(); }).then(function(files) {
         if (!files.length) return;
         avatarQueue = shuffleArr(files);
         showAvatar('/avatar/' + encodeURIComponent(avatarQueue[0]));
-        // Precargar
         files.forEach(function(f) { var p = new Image(); p.src = '/avatar/' + encodeURIComponent(f); });
         setInterval(rotateAvatar, 180000);
     });
@@ -258,40 +274,45 @@
     }
     connectAudioSSE();
 
-    (function drawLoop() {
-        var canvas = document.getElementById('audio-canvas');
-        var ctx = canvas.getContext('2d');
-        var W = canvas.width, H = canvas.height;
-        var midY = Math.floor(H / 2);
-        var n = audioBands.length;           // 24 bandas
-        var barW = Math.floor((W - n + 1) / n);
-        var step = barW + 1;
-        var offX = Math.floor((W - step * n + 1) / 2);
+    (function() {
+        var canvas  = document.getElementById('audio-canvas');
+        var ctx     = canvas.getContext('2d');
+        var W       = canvas.width, H = canvas.height;
+        var midY    = Math.floor(H / 2);
+        var n       = 24;
+        var barW    = Math.floor((W - n + 1) / n);
+        var step    = barW + 1;
+        var offX    = Math.floor((W - step * n + 1) / 2);
+        var lastTs  = 0;
+        var FRAME   = 1000 / 20;   // 20fps — audio actualiza a 10fps, sobra
 
-        ctx.clearRect(0, 0, W, H);
+        function drawLoop(ts) {
+            requestAnimationFrame(drawLoop);
+            if (ts - lastTs < FRAME) return;
+            lastTs = ts;
 
-        // Línea central
-        ctx.fillStyle = 'rgba(0,212,255,0.18)';
-        ctx.fillRect(0, midY, W, 1);
+            ctx.clearRect(0, 0, W, H);
 
-        for (var i = 0; i < n; i++) {
-            var val = audioBands[i] / 100;           // 0 – 1
-            var bH  = Math.max(2, Math.floor(val * (midY - 2)));
-            var x   = offX + i * step;
-            var alpha = 0.22 + val * 0.78;
+            ctx.fillStyle = 'rgba(0,212,255,0.18)';
+            ctx.fillRect(0, midY, W, 1);
 
-            ctx.fillStyle = 'rgba(0,212,255,' + alpha.toFixed(2) + ')';
-            ctx.fillRect(x, midY - bH, barW, bH);   // sube
-            ctx.fillRect(x, midY + 1,  barW, bH);   // baja (espejo)
+            for (var i = 0; i < n; i++) {
+                var val   = audioBands[i] / 100;
+                var bH    = Math.max(2, Math.floor(val * (midY - 2)));
+                var x     = offX + i * step;
+                var alpha = 0.22 + val * 0.78;
 
-            // Punto de pico blanco
-            if (val > 0.04) {
-                ctx.fillStyle = 'rgba(255,255,255,0.85)';
-                ctx.fillRect(x, midY - bH,     barW, 1);
-                ctx.fillRect(x, midY + bH,     barW, 1);
+                ctx.fillStyle = 'rgba(0,212,255,' + alpha.toFixed(2) + ')';
+                ctx.fillRect(x, midY - bH, barW, bH);
+                ctx.fillRect(x, midY + 1,  barW, bH);
+
+                if (val > 0.04) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                    ctx.fillRect(x, midY - bH, barW, 1);
+                    ctx.fillRect(x, midY + bH, barW, 1);
+                }
             }
         }
-
         requestAnimationFrame(drawLoop);
     })();
 

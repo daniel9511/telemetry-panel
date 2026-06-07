@@ -26,9 +26,9 @@ uv run python main.py
 uv run python -m src.sensors.sensors
 
 # Acceder al panel desde el navegador local
-# http://localhost:8090
+# http://localhost:7842
 # Desde la tablet (reemplazar con la IP real del PC)
-# http://192.168.x.x:8090
+# http://192.168.x.x:7842
 ```
 
 No hay tests automatizados. La validación se hace ejecutando el servidor y comprobando las métricas en el navegador o revisando la salida de consola de `sensors.py`.

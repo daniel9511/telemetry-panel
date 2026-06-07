@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("gpu_sensor")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+88fd31dec37cb1cf1bbdcbd35ba658a51477b4e4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+88d92e0c8634d7ccd609858bd7a91e22d7518496")]
 [assembly: System.Reflection.AssemblyProductAttribute("gpu_sensor")]
 [assembly: System.Reflection.AssemblyTitleAttribute("gpu_sensor")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

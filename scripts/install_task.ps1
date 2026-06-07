@@ -68,5 +68,5 @@ Write-Host ""
 $start = Read-Host "Iniciar el panel ahora? (s/n)"
 if ($start -eq "s") {
     Start-ScheduledTask -TaskName $taskName
-    Write-Host "Panel iniciado. Abre http://localhost:8090"
+    Write-Host "Panel iniciado. Abre http://localhost:7842"
 }

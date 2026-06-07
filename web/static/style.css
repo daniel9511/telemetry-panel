@@ -289,14 +289,38 @@ body::after {
     letter-spacing: 3px;
 }
 
+/* Wrapper: solo maneja la flotación vertical (translateY) */
+.avatar-float {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 100%;
+    will-change: transform;
+    animation: av-float 4.7s ease-in-out infinite alternate;
+}
+
+/* Cada imagen: solo maneja la deriva horizontal (translateX) */
 .avatar-img {
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 100%;
     object-fit: contain;
     object-position: bottom center;
     opacity: 0;
-    transition: opacity 0.6s ease;
+    transition: opacity 1.4s ease;
     image-rendering: pixelated;
+    will-change: transform, opacity;
+    animation: av-drift 7.0s ease-in-out infinite alternate;
+}
+
+/* Ambas animaciones usan solo transform → GPU, sin layout reflow */
+@keyframes av-float {
+    from { transform: translateY(0px); }
+    to   { transform: translateY(-10px); }
+}
+
+@keyframes av-drift {
+    from { transform: translateX(-5px); }
+    to   { transform: translateX(5px); }
 }
 
 /* ── MEDIA CARD ──────────────────────────────────────────── */
@@ -338,9 +362,7 @@ body::after {
     flex-shrink: 0;
     width: 200px;
     height: 200px;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    position: relative;
 }
 
 /* Audio spectrum canvas — reemplaza las EQ bars CSS */
