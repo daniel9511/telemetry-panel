@@ -50,6 +50,10 @@ Thumbs.db
 tools/gpu_sensor/bin/
 tools/gpu_sensor/obj/
 
-# Driver WinRing0 que LibreHardwareMonitor instala en runtime
+# Artefactos de runtime de LibreHardwareMonitor / WinRing0
 tools/bin/*.sys
 tools/bin/*.pdb
+tools/bin/*.dll
+
+# Screenshots temporales de verificación
+screenshot*.png
