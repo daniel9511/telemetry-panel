@@ -120,7 +120,7 @@
                     <span id="media-title" class="media-title">Sin reproducción activa</span>
                 </div>
                 <div class="media-avatar">
-                    <img id="avatar-img" class="avatar-img" src="" alt="KIRA">
+                    <img id="avatar-img" class="avatar-img" src="" alt="">
                 </div>
             </div>
         </div>
@@ -252,16 +252,16 @@
         setTimeout(function() {
             avatarIdx = (avatarIdx + 1) % avatarQueue.length;
             if (avatarIdx === 0) shuffleArr(avatarQueue);
-            showAvatar('/avatar/' + avatarQueue[avatarIdx]);
+            showAvatar('/avatar/' + encodeURIComponent(avatarQueue[avatarIdx]));
         }, 500);
     }
 
     fetch('/avatar/list').then(function(r) { return r.json(); }).then(function(files) {
         if (!files.length) return;
         avatarQueue = shuffleArr(files);
-        showAvatar('/avatar/' + avatarQueue[0]);
+        showAvatar('/avatar/' + encodeURIComponent(avatarQueue[0]));
         // Precargar
-        files.forEach(function(f) { var p = new Image(); p.src = '/avatar/' + f; });
+        files.forEach(function(f) { var p = new Image(); p.src = '/avatar/' + encodeURIComponent(f); });
         setInterval(rotateAvatar, 180000);
     });
 

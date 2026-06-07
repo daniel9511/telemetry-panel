@@ -7,22 +7,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Explicá la estructura y el porqué ANTES de escribir código.
 - Avanzá paso a paso, no generes módulos enteros de una sin comentar qué hace cada parte.
 - En temas .NET/Windows/frontend podés ser más autónomo; en Flask/API/arquitectura, modo enseñanza.
+- **No usar plan mode ni AskUserQuestion de forma forzada.** El usuario planifica con otro modelo y ejecuta con Sonnet. Hacer preguntas directamente en texto.
 
 ---
 
 ## 🖥️ Comandos de Desarrollo
 
-El proyecto usa Python 3.12 con un virtualenv en `.venv/`. Ejecutar siempre desde la raíz del proyecto.
+El proyecto usa Python 3.12 con `uv`. Ejecutar siempre desde la raíz del proyecto.
 
 ```powershell
-# Activar entorno virtual (Windows)
-.venv\Scripts\activate
+# Instalar dependencias
+uv sync
 
-# Iniciar el servidor de desarrollo
-python main.py
+# Iniciar el servidor
+uv run python main.py
 
 # Probar los sensores de forma aislada (sin Flask)
-python -m src.sensors.sensors
+uv run python -m src.sensors.sensors
 
 # Acceder al panel desde el navegador local
 # http://localhost:8090
@@ -34,35 +35,30 @@ No hay tests automatizados. La validación se hace ejecutando el servidor y comp
 
 ---
 
-## 🏗️ Arquitectura Actual vs. Arquitectura Objetivo
-
-> **Estado actual del código:** el MVP funciona pero todavía no implementa la arquitectura final. Hay brecha entre lo que está en el código y lo que dice este documento como objetivo.
-
-### Estado actual (código real hoy)
-
-| Capa | Archivo | Estado |
-|---|---|---|
-| Entry point | `main.py` | Ejecuta `app.run()` (modo dev). Incluye código residual del puente WSL2 que ya no aplica. |
-| Servidor Flask | `src/server/app.py` | Ruta `/` renderiza `index.html` con Jinja2. Lee sensores **en cada request HTTP** (sin caché, sin SSE). |
-| Sensores | `src/sensors/sensors.py` | Usa `subprocess` + `powershell.exe` para CPU, RAM y GPU. **Pendiente migrar a `psutil`**. |
-| Frontend | `web/templates/index.html` | MVP básico con `<meta http-equiv="refresh" content="3">`. **Pendiente migrar a SSE + EventSource**. |
-| Estilos | `web/static/style.css` | CSS mínimo de placeholder. |
-
-### Arquitectura objetivo
+## 🏗️ Arquitectura Actual (implementada)
 
 ```
 [Hilo sensor cada ~2s] → [dict caché en memoria] → [Flask SSE stream] → [EventSource en tablet]
 ```
 
-Un **hilo en background** lee los sensores a ritmo fijo y actualiza un diccionario en memoria. La ruta SSE de Flask lee ese diccionario y empuja datos al cliente. Las peticiones HTTP **nunca disparan lecturas de hardware directas**.
+| Capa | Archivo | Estado |
+|---|---|---|
+| Entry point | `main.py` | `waitress` en producción, 4 threads |
+| Servidor Flask | `src/server/app.py` | Rutas `/`, `/stream`, `/avatar/*`, hilo sensor en background |
+| Sensores | `src/sensors/sensors.py` | `psutil` (CPU/RAM), subprocess a exe C# (GPU), ctypes RTSS (FPS), winsdk (multimedia) |
+| GPU exe | `tools/bin/gpu_sensor.exe` | C# .NET 9 + LibreHardwareMonitor, imprime JSON a stdout |
+| Frontend | `web/templates/index.html` | HUD NEURAL GRID, SSE EventSource, rotación de avatar, reloj |
+| Estilos | `web/static/style.css` | CSS oscuro optimizado para 1280×800, sin librerías externas |
+| Avatar | `avatar/` | PNGs con fondo transparente, servidos dinámicamente, rotan cada 3 min |
+| Despliegue | `scripts/install_task.ps1` | Task Scheduler at logon (sesión usuario, multimedia funciona) |
 
 ---
 
 ## 📌 Visión General
 
-Panel web de telemetría de PC en **tiempo real** para una **tablet vía WiFi (red local)**. Muestra CPU, RAM, GPU AMD Radeon RX 7800 XT y estado multimedia. Opera de forma silenciosa y nativa en Windows, sin impactar el rendimiento del PC host.
+Panel web de telemetría de PC en **tiempo real** para una **tablet vía WiFi (red local)**. Muestra CPU, RAM, GPU AMD Radeon RX 7800 XT, FPS (via RTSS) y estado multimedia. Opera de forma silenciosa en Windows, sin impactar el rendimiento del PC host.
 
-**Cliente:** Huawei MediaPad 10 (10.1", 1280×800, landscape), Android 4.1, Firefox 68.11.0 (Gecko/2019). Soporta ES6 completo, `fetch`, `EventSource`, CSS Grid, `async/await`. No necesita ES5 ni `XMLHttpRequest`.
+**Cliente:** Huawei MediaPad 10 (10.1", 1280×800, landscape), Android 4.1, Firefox 68.11.0 (Gecko/2019). Soporta ES6 completo, `fetch`, `EventSource`, CSS Grid, `async/await`.
 
 ---
 
@@ -73,21 +69,20 @@ Es un MediaPad del 2013 con CPU y RAM limitadas funcionando como monitor permane
 - **SSE sobre polling.** Un solo `EventSource` abierto es más eficiente que un request HTTP por segundo.
 - **DOM mínimo.** Actualizar solo los nodos que cambian, nunca re-renderizar tarjetas enteras.
 - **Sin librerías JS externas** (no jQuery, no React, no Chart.js). Vanilla JS puro.
-- **Sin animaciones CSS pesadas** (keyframes, blur, box-shadow excesivo). Efectos sutiles con `will-change`.
+- **Sin animaciones CSS pesadas.** Solo `transform: scaleY` (GPU-accelerated) y `opacity`. Sin blur, sin box-shadow en elementos grandes.
 - **Fondo oscuro** para lectura continua y ahorro de batería.
-- **Reconexión automática:** el cliente debe reconectar el `EventSource` sin intervención manual.
+- **Reconexión automática:** el cliente reconecta el `EventSource` sin intervención manual (setTimeout 3000ms en onerror).
 
 ---
 
 ## 🔧 Stack y Decisiones de Sensores
 
-- **CPU/RAM:** `psutil` — `psutil.cpu_percent()` y `psutil.virtual_memory()`. **NO** `subprocess` a PowerShell (lento, golpea rendimiento). *Todavía no migrado en el código actual.*
-- **GPU/Temp:** `OpenHardwareMonitorLib.dll` vía `pythonnet` (`import clr`). Objeto `Computer` → `GPUEnabled` → recorrer árbol de sensores para uso (%) y temperatura de la RX 7800 XT.
-  - *Fallback:* WMI namespace `root\OpenHardwareMonitor` (distinto de `root\LibreHardwareMonitor`).
-- **Multimedia:** `winsdk` (GSMTC — `GlobalSystemMediaTransportControlsSessionManager`).
-  - ⚠️ **Gotcha Sesión 0:** un servicio NSSM corre en Sesión 0 sin contexto multimedia → devuelve vacío. Solución: Task Scheduler con trigger de logon para la parte multimedia.
-- **Servidor de producción:** `waitress` (WSGI puro en Windows). **No** `app.run()` de Flask.
-- **Despliegue:** NSSM como servicio silencioso de Windows.
+- **CPU/RAM:** `psutil` — `psutil.cpu_percent(interval=None)` y `psutil.virtual_memory()`. Sin subprocess a PowerShell.
+- **GPU/Temp:** exe C# (`tools/bin/gpu_sensor.exe`) usando `LibreHardwareMonitor` como NuGet. Python lo llama via `subprocess` en cada ciclo. Imprime `{"gpu_usage": X, "gpu_temp": Y}` a stdout. Requiere .NET 9 Runtime.
+- **FPS:** RTSS shared memory `RTSSSharedMemoryV2` via `ctypes`. Fallback a `GetDeviceCaps(VREFRESH)` cuando no hay juego activo. Campo `fps_source` indica `"game"` o `"display"`.
+- **Multimedia:** `winsdk` (GSMTC — `GlobalSystemMediaTransportControlsSessionManager`). Requiere sesión de usuario (no Sesión 0).
+- **Servidor de producción:** `waitress` (WSGI puro en Windows). `app.run()` de Flask solo para debug manual.
+- **Despliegue:** Task Scheduler con trigger de logon. `LogonType Interactive` + `RunLevel Highest` — corre en la sesión del usuario con permisos de admin (necesario para LibreHardwareMonitor).
 
 ---
 
@@ -103,13 +98,14 @@ Todos los campos presentes en cada emisión; fallback `0.0` / `""` si falla una 
   "ram_percent": 57.5,
   "gpu_usage": 81.0,
   "gpu_temp": 72.0,
-  "fps": 0.0,
+  "fps": 144.0,
+  "fps_source": "game",
   "media_status": "Reproduciendo",
   "media_title": "Infected Mushroom - Converting Vegetarians · YouTube"
 }
 ```
 
-`fps` siempre se incluye como `0.0` hasta que se implemente la lectura real, para no cambiar la estructura del JSON.
+`fps_source` es `"game"` cuando RTSS reporta FPS activos, `"display"` cuando devuelve el refresh rate del monitor como fallback. El frontend cambia la etiqueta entre "FPS" y "Hz" según este campo.
 
 ---
 
@@ -120,36 +116,39 @@ Todos los campos presentes en cada emisión; fallback `0.0` / `""` si falla una 
 - [x] Servidor Flask base.
 - [x] Migración de WSL2 a Windows nativo.
 
-### 🟡 Fase 2: Sensores Base — REFACTOR PENDIENTE
+### ✅ Fase 2: Sensores Base
 - [x] Módulo `sensors.py` aislado.
-- [ ] Migrar CPU/RAM de PowerShell a `psutil`.
-- [ ] Implementar hilo de caché en background.
-- [ ] Conectar caché con stream SSE de Flask.
+- [x] Migrar CPU/RAM de PowerShell a `psutil`.
+- [x] Implementar hilo de caché en background.
+- [x] Conectar caché con stream SSE de Flask.
 
-### 🟡 Fase 3: GPU (En Progreso)
-- [x] Open Hardware Monitor instalado.
-- [ ] Integrar `OpenHardwareMonitorLib.dll` vía `pythonnet`.
-- [ ] Extraer uso (%) y temperatura de la RX 7800 XT.
+### ✅ Fase 3: GPU
+- [x] Exe C# con LibreHardwareMonitor (`tools/gpu_sensor/`).
+- [x] Extraer uso (%) y temperatura de la RX 7800 XT.
 
-### ⏳ Fase 4: Multimedia e Interfaz Final
-- [ ] Endpoint SSE Flask (`text/event-stream`).
-- [ ] Frontend: CSS oscuro, tarjetas gamer/tech, optimizado para 1280×800.
-- [ ] JS: `EventSource` con reconexión automática, actualización de nodos individuales.
-- [ ] Multimedia: `winsdk` GSMTC, resolver gotcha Sesión 0.
+### ✅ Fase 4: Multimedia e Interfaz Final
+- [x] Endpoint SSE Flask (`text/event-stream`).
+- [x] Frontend NEURAL GRID: CSS oscuro, tarjetas gamer/tech, optimizado para 1280×800.
+- [x] JS: `EventSource` con reconexión automática, actualización de nodos individuales.
+- [x] FPS via RTSS + fallback refresh rate de monitor.
+- [x] Multimedia: `winsdk` GSMTC.
+- [x] Avatar: PNGs en `avatar/`, servidos dinámicamente, rotación cada 3 min con fade.
+- [x] EQ bars estilo wave (16 barras simétricas, animación escalonada).
 
-### ⏳ Fase 5: Producción
-- [ ] Reemplazar `app.run()` por `waitress`.
-- [ ] Registrar con NSSM.
-- [ ] Resolver multimedia fuera de Sesión 0.
+### ✅ Fase 5: Producción
+- [x] Reemplazar `app.run()` por `waitress`.
+- [x] Task Scheduler con logon trigger (resuelve Sesión 0 y multimedia).
+- [x] Scripts `install_task.ps1` y `uninstall_task.ps1`.
 
 ---
 
 ## 🛠️ Reglas de Desarrollo
 
 1. **Hardware real:** leer sensores nativos, no mocks ni entornos virtuales.
-2. **Lecturas ligeras:** `psutil` para CPU/RAM, DLL nativa para GPU. Sin PowerShell en cada poll.
+2. **Lecturas ligeras:** `psutil` para CPU/RAM, exe C# para GPU. Sin PowerShell en cada poll.
 3. **Caché siempre:** el stream SSE lee del diccionario en memoria, nunca directamente del hardware.
 4. **Resiliencia:** toda función sensora lleva `try/except` y devuelve `0.0`.
-5. **Frontend liviano:** sin librerías externas, DOM mínimo, sin animaciones pesadas.
+5. **Frontend liviano:** sin librerías externas, DOM mínimo, solo `transform` y `opacity` como animaciones.
 6. **SSE sobre polling.**
 7. **Producción ≠ desarrollo:** `waitress` para servir, nunca el servidor de Flask.
+8. **Avatar dinámico:** la lista de imágenes se lee de `/avatar/list` al cargar — no hardcodear nombres de archivo en el JS.

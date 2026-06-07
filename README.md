@@ -1,17 +1,17 @@
 # KIRA Telemetry Panel
 
-Panel web de telemetría en tiempo real para PC, diseñado para ser monitoreado desde una tablet vía WiFi en red local. Muestra CPU, RAM, GPU y estado multimedia con una interfaz estilo HUD.
+Panel web de telemetría en tiempo real para PC, monitoreable desde una tablet vía WiFi en red local. Muestra CPU, RAM, GPU, FPS y estado multimedia con una interfaz HUD estilo sci-fi oscuro.
 
 ---
 
-## Contexto del hardware
+## Hardware
 
 | Componente | Detalle |
 |---|---|
 | Host | Windows 11 Pro |
 | GPU | AMD Radeon RX 7800 XT |
 | RAM | 32 GB DDR5 |
-| Cliente | Huawei MediaPad 10 (2013), Android 4.1, Firefox 68.11 |
+| Cliente | Huawei MediaPad 10 (2013), Android 4.1, Firefox 68.11, 1280×800 landscape |
 
 El cliente es un dispositivo de 2013 con recursos limitados — toda decisión de arquitectura y frontend prioriza eficiencia sobre conveniencia.
 
@@ -23,13 +23,13 @@ El cliente es un dispositivo de 2013 con recursos limitados — toda decisión d
 [Hilo sensor cada ~2s]
         |
         v
-[dict caché en memoria]  <-- sensor_cache en app.py
+[dict caché en memoria]  ←  sensor_cache en app.py
         |
         v
-[Flask SSE /stream]  -->  [EventSource en tablet]
+[Flask SSE /stream]  →  [EventSource en tablet]
 ```
 
-Un hilo en background (`sensor-loop`) lee los sensores a ritmo fijo y actualiza un diccionario en memoria. La ruta `/stream` de Flask lee ese diccionario y empuja JSON al cliente via Server-Sent Events. Las peticiones HTTP nunca disparan lecturas de hardware directas.
+Un hilo en background (`sensor-loop`) lee los sensores a ritmo fijo y actualiza un diccionario en memoria. La ruta `/stream` empuja JSON al cliente via Server-Sent Events. Las peticiones HTTP nunca disparan lecturas de hardware directas.
 
 ---
 
@@ -37,17 +37,28 @@ Un hilo en background (`sensor-loop`) lee los sensores a ritmo fijo y actualiza 
 
 ```
 telemetry-panel/
-├── main.py                    # Entry point: arranca Flask en modo dev
+├── main.py                      # Entry point: arranca waitress (producción)
+├── pyproject.toml               # Dependencias gestionadas con uv
+├── avatar/                      # Imágenes PNG del avatar (transparente, rotación automática)
+├── scripts/
+│   ├── install_task.ps1         # Registra KIRA en Task Scheduler (logon, con multimedia)
+│   └── uninstall_task.ps1       # Elimina la tarea
+├── tools/
+│   ├── bin/
+│   │   └── gpu_sensor.exe       # Exe C# compilado — lee GPU via LibreHardwareMonitor
+│   └── gpu_sensor/
+│       ├── Program.cs           # Fuente del exe (imprime JSON a stdout)
+│       └── gpu_sensor.csproj    # .NET 9, PublishSingleFile
 ├── src/
 │   ├── server/
-│   │   └── app.py             # Flask app, hilo sensor, rutas / y /stream
+│   │   └── app.py               # Flask: hilo sensor, rutas /, /stream, /avatar/*
 │   └── sensors/
-│       └── sensors.py         # Funciones de lectura de hardware
+│       └── sensors.py           # Lectura de hardware: CPU, RAM, GPU, FPS, multimedia
 └── web/
     ├── templates/
-    │   └── index.html         # HUD: HTML + JS vanilla con EventSource
+    │   └── index.html           # HUD: estructura + JS vanilla (SSE, avatar, reloj)
     └── static/
-        └── style.css          # Estilos oscuros optimizados para tablet
+        └── style.css            # Estilos NEURAL GRID oscuros optimizados para tablet
 ```
 
 ---
@@ -58,51 +69,65 @@ telemetry-panel/
 |---|---|
 | `psutil` | CPU load y uso de RAM (nativo, sin PowerShell) |
 | `Flask` | Servidor web + SSE stream |
-| `waitress` | Servidor WSGI para producción (reemplaza `app.run()`) |
-| `pythonnet` (`clr`) | Acceso a `OpenHardwareMonitorLib.dll` para GPU temp |
+| `waitress` | Servidor WSGI para producción |
 | `winsdk` | GSMTC — estado multimedia del sistema (Windows 10+) |
+
+**GPU:** exe C# separado (`tools/bin/gpu_sensor.exe`) usando `LibreHardwareMonitor` como NuGet. Python lo llama via `subprocess` en cada ciclo del sensor loop. No requiere pythonnet ni OHM instalado.
+
+**FPS:** RTSS shared memory (`RTSSSharedMemoryV2`) via ctypes. Fallback automático a refresh rate del monitor (`GetDeviceCaps`) cuando no hay juego activo.
 
 ---
 
 ## Requisitos previos
 
-- [uv](https://docs.astral.sh/uv/) (gestor de paquetes y entornos virtuales)
-- Python 3.12 (uv lo descarga automáticamente si no está instalado)
-- [Open Hardware Monitor](https://openhardwaremonitor.org/) instalado (para temperatura de GPU)
-- `pythonnet` requiere .NET Framework instalado en el sistema
+- [uv](https://docs.astral.sh/uv/) — gestor de paquetes
+- Python 3.12 (uv lo descarga automáticamente)
+- [RTSS (RivaTuner Statistics Server)](https://www.guru3d.com/files-details/rtss-rivatuner-statistics-server-download.html) — necesario para lectura de FPS en juegos
+- .NET 9 Runtime — para ejecutar `gpu_sensor.exe`
 
 ---
 
 ## Instalación
 
 ```powershell
-# Clonar el repositorio
 git clone <url>
 cd telemetry-panel
-
-# Instalar dependencias y crear el entorno virtual (.venv) en un solo paso
 uv sync
 ```
 
-`uv sync` lee `pyproject.toml` + `uv.lock` y reproduce el entorno exacto. No hace falta crear el `.venv` ni correr `pip install` a mano.
+`uv sync` lee `pyproject.toml` + `uv.lock` y reproduce el entorno exacto.
 
 ---
 
-## Uso
+## Uso en desarrollo
 
 ```powershell
-# Iniciar el servidor de desarrollo
+# Iniciar el servidor
 uv run python main.py
 
 # Probar sensores en forma aislada (sin Flask)
 uv run python -m src.sensors.sensors
 ```
 
-`uv run` usa automáticamente el entorno virtual del proyecto sin necesidad de activarlo manualmente.
-
 Acceder desde el navegador:
 - **Local:** `http://localhost:8090`
 - **Tablet (red local):** `http://<ip-del-pc>:8090`
+
+---
+
+## Despliegue en producción (Task Scheduler)
+
+```powershell
+# Ejecutar como Administrador
+PowerShell -ExecutionPolicy Bypass -File scripts\install_task.ps1
+```
+
+Registra una tarea que arranca KIRA automáticamente al hacer login. Corre en la sesión del usuario (no Sesión 0), lo que permite acceso al contexto multimedia de Windows. Reinicio automático en caso de crash.
+
+Para desinstalar:
+```powershell
+PowerShell -ExecutionPolicy Bypass -File scripts\uninstall_task.ps1
+```
 
 ---
 
@@ -118,51 +143,54 @@ Cada ~2 segundos el servidor emite un JSON con esta estructura fija:
   "ram_percent": 57.5,
   "gpu_usage": 81.0,
   "gpu_temp": 72.0,
-  "fps": 0.0,
+  "fps": 144.0,
+  "fps_source": "game",
   "media_status": "Reproduciendo",
   "media_title": "Infected Mushroom - Converting Vegetarians · YouTube"
 }
 ```
 
-`fps` siempre es `0.0` hasta que se implemente la lectura real. El campo existe para no romper la estructura del JSON.
+`fps_source` puede ser `"game"` (RTSS activo) o `"display"` (refresh rate del monitor como fallback). El frontend muestra "FPS" o "Hz" según este campo.
 
 ---
 
 ## Lectura de GPU
 
-El módulo `sensors.py` intenta dos métodos en orden:
+`gpu_sensor.exe` usa `LibreHardwareMonitor` para leer uso (%) y temperatura (°C) de la GPU. Python lo llama via subprocess y parsea el JSON de stdout:
 
-1. **`OpenHardwareMonitorLib.dll` vía `pythonnet`** — devuelve uso (%) y temperatura. Requiere que OHM esté instalado en el sistema.
-2. **Fallback WMI via PowerShell** — devuelve solo uso (%), sin temperatura. Se usa si la DLL no se encuentra.
+```
+{"gpu_usage": 81.0, "gpu_temp": 72.0}
+```
 
-Para que OHM funcione se puede configurar la ruta de la DLL con la variable de entorno `OHM_DLL_PATH`, o dejarla en la ubicación por defecto (`C:\Program Files\OpenHardwareMonitor\`).
+Para recompilar el exe (requiere .NET 9 SDK):
+```powershell
+cd tools/gpu_sensor
+dotnet publish -c Release -r win-x64 -o ../bin
+```
+
+---
+
+## Avatar
+
+La carpeta `avatar/` contiene imágenes PNG con fondo transparente que se muestran en la tarjeta NOW PLAYING. El servidor las sirve via `/avatar/<filename>` y `/avatar/list`. El frontend carga la lista dinámicamente — agregar o reemplazar imágenes en la carpeta no requiere tocar código, solo recargar la página.
+
+Las imágenes rotan aleatoriamente cada 3 minutos con transición de fade.
 
 ---
 
 ## Multimedia
 
-Usa la API `GlobalSystemMediaTransportControlsSessionManager` (GSMTC) de Windows a través de `winsdk`. Devuelve artista, título y estado de reproducción (Reproduciendo / Pausado / Detenido).
+Usa `GlobalSystemMediaTransportControlsSessionManager` (GSMTC) de Windows a través de `winsdk`. Devuelve artista, título y estado (Reproduciendo / Pausado / Detenido).
 
-**Limitación conocida:** si el servidor corre como servicio Windows (Sesión 0), el contexto multimedia estará vacío. La solución planeada es lanzar la parte multimedia via Task Scheduler con trigger de logon en lugar de NSSM.
-
----
-
-## Roadmap
-
-| Fase | Estado | Descripción |
-|---|---|---|
-| 1 — Fundaciones | Completa | Estructura, Flask base, migración WSL2 → Windows nativo |
-| 2 — Sensores base | Completa | `psutil` para CPU/RAM, hilo de caché, SSE conectado |
-| 3 — GPU | Parcial | OHM integrado; falta validar temperatura en hardware real |
-| 4 — Multimedia e interfaz | Pendiente | HUD final, CSS oscuro optimizado, EventSource con reconexión |
-| 5 — Producción | Pendiente | `waitress` + NSSM como servicio, resolver Sesión 0 |
+Requiere correr en la sesión del usuario — el Task Scheduler con trigger de logon resuelve esto. Si corre como servicio Windows (Sesión 0), el multimedia estará vacío.
 
 ---
 
-## Decisiones de diseño relevantes
+## Decisiones de diseño
 
-- **SSE sobre polling:** un `EventSource` abierto es más eficiente que un request HTTP por segundo en hardware limitado.
+- **SSE sobre polling:** un `EventSource` abierto es más eficiente que requests HTTP repetidos en hardware limitado.
 - **Sin librerías JS externas:** vanilla JS puro — no jQuery, no React, no Chart.js.
 - **DOM mínimo:** solo se actualizan los nodos que cambian, nunca se re-renderizan tarjetas enteras.
-- **Sin animaciones CSS pesadas:** sin `keyframes`, sin `blur`, sin `box-shadow` excesivo — la tablet no los aguanta.
-- **Fondo oscuro:** lectura continua y ahorro de batería en pantalla AMOLED/LCD.
+- **GPU via exe C#:** más liviano que mantener OHM corriendo; el exe lee, imprime y sale en < 1s.
+- **Task Scheduler sobre NSSM:** NSSM corre en Sesión 0 y rompe el multimedia; Task Scheduler corre en sesión del usuario.
+- **Fondo oscuro:** lectura continua y ahorro de batería.
