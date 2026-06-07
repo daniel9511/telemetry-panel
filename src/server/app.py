@@ -5,6 +5,7 @@ import time
 
 from flask import Flask, Response, render_template, send_from_directory
 
+from src.sensors.audio import get_spectrum, start_audio_thread
 from src.sensors.sensors import (
     get_cpu_load,
     get_fps,
@@ -62,6 +63,7 @@ def _sensor_loop():
 
 
 threading.Thread(target=_sensor_loop, daemon=True, name="sensor-loop").start()
+start_audio_thread()
 
 
 AVATAR_DIR = os.path.join(BASE_DIR, "avatar")
@@ -77,6 +79,23 @@ def avatar_list():
 @app.route("/avatar/<path:filename>")
 def avatar(filename):
     return send_from_directory(AVATAR_DIR, filename)
+
+
+@app.route("/stream/audio")
+def stream_audio():
+    def generate():
+        try:
+            while True:
+                yield f"data: {json.dumps(get_spectrum())}\n\n"
+                time.sleep(0.1)
+        except GeneratorExit:
+            pass
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.route("/")

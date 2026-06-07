@@ -99,24 +99,7 @@
             </div>
             <div class="media-body">
                 <div class="media-left">
-                    <div class="media-eq" id="media-eq">
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                        <span class="eqb"></span>
-                    </div>
+                    <canvas id="audio-canvas" class="audio-canvas" width="760" height="90"></canvas>
                     <span id="media-title" class="media-title">Sin reproducción activa</span>
                 </div>
                 <div class="media-avatar">
@@ -220,8 +203,6 @@
         badge.textContent = st || '—';
         badge.className = 'media-badge' +
             (st === 'Reproduciendo' ? ' playing' : st === 'Pausado' ? ' paused' : '');
-        document.getElementById('media-eq').className =
-            'media-eq' + (st === 'Reproduciendo' ? ' active' : '');
         document.getElementById('media-title').textContent =
             d.media_title || 'Sin reproducción activa';
     }
@@ -264,6 +245,55 @@
         files.forEach(function(f) { var p = new Image(); p.src = '/avatar/' + encodeURIComponent(f); });
         setInterval(rotateAvatar, 180000);
     });
+
+    // ── Audio visualizer ──────────────────────────────────────
+    var audioBands = new Array(24).fill(0);
+
+    function connectAudioSSE() {
+        var es = new EventSource('/stream/audio');
+        es.onmessage = function(e) {
+            try { audioBands = JSON.parse(e.data).bands; } catch(x) {}
+        };
+        es.onerror = function() { es.close(); setTimeout(connectAudioSSE, 3000); };
+    }
+    connectAudioSSE();
+
+    (function drawLoop() {
+        var canvas = document.getElementById('audio-canvas');
+        var ctx = canvas.getContext('2d');
+        var W = canvas.width, H = canvas.height;
+        var midY = Math.floor(H / 2);
+        var n = audioBands.length;           // 24 bandas
+        var barW = Math.floor((W - n + 1) / n);
+        var step = barW + 1;
+        var offX = Math.floor((W - step * n + 1) / 2);
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Línea central
+        ctx.fillStyle = 'rgba(0,212,255,0.18)';
+        ctx.fillRect(0, midY, W, 1);
+
+        for (var i = 0; i < n; i++) {
+            var val = audioBands[i] / 100;           // 0 – 1
+            var bH  = Math.max(2, Math.floor(val * (midY - 2)));
+            var x   = offX + i * step;
+            var alpha = 0.22 + val * 0.78;
+
+            ctx.fillStyle = 'rgba(0,212,255,' + alpha.toFixed(2) + ')';
+            ctx.fillRect(x, midY - bH, barW, bH);   // sube
+            ctx.fillRect(x, midY + 1,  barW, bH);   // baja (espejo)
+
+            // Punto de pico blanco
+            if (val > 0.04) {
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.fillRect(x, midY - bH,     barW, 1);
+                ctx.fillRect(x, midY + bH,     barW, 1);
+            }
+        }
+
+        requestAnimationFrame(drawLoop);
+    })();
 
     // SSE con reconexión automática
     function connectSSE() {
