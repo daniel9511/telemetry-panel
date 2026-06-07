@@ -60,79 +60,98 @@ def get_gpu_metrics() -> dict:
     return metrics
 
 
-# --- FPS via RTSS shared memory ---
+# --- FPS via RTSS shared memory + refresh rate de monitor ---
 
 def _dword_at(ptr: int, offset: int) -> int:
     return ctypes.c_uint32.from_address(ptr + offset).value
 
 
-def get_fps() -> float:
+def _rtss_fps() -> float:
+    k32 = ctypes.windll.kernel32
+    k32.OpenFileMappingW.restype = ctypes.c_void_p
+    k32.MapViewOfFile.restype    = ctypes.c_void_p
+
+    handle = k32.OpenFileMappingW(0x0004, False, "RTSSSharedMemoryV2")
+    if not handle:
+        return 0.0
+
+    ptr = k32.MapViewOfFile(handle, 0x0004, 0, 0, 0)
+    if not ptr:
+        k32.CloseHandle(handle)
+        return 0.0
+
     try:
-        k32 = ctypes.windll.kernel32
-        k32.OpenFileMappingW.restype = ctypes.c_void_p
-        k32.MapViewOfFile.restype    = ctypes.c_void_p
-
-        handle = k32.OpenFileMappingW(0x0004, False, "RTSSSharedMemoryV2")
-        if not handle:
+        if _dword_at(ptr, 0) != 0x52545353:
             return 0.0
 
-        ptr = k32.MapViewOfFile(handle, 0x0004, 0, 0, 0)
-        if not ptr:
-            k32.CloseHandle(handle)
+        version        = _dword_at(ptr, 4)
+        app_entry_size = _dword_at(ptr, 8)
+        app_arr_offset = _dword_at(ptr, 12)
+        app_arr_count  = _dword_at(ptr, 16)
+
+        if app_entry_size == 0 or app_arr_count == 0:
             return 0.0
 
-        try:
-            if _dword_at(ptr, 0) != 0x52545353:  # firma 'RTSS'
-                return 0.0
+        target = None
+        if version >= 0x00020010:
+            idx = _dword_at(ptr, 64)
+            if idx < app_arr_count:
+                target = idx
 
-            version        = _dword_at(ptr, 4)
-            app_entry_size = _dword_at(ptr, 8)
-            app_arr_offset = _dword_at(ptr, 12)
-            app_arr_count  = _dword_at(ptr, 16)
+        if target is None:
+            best_t1 = 0
+            for i in range(app_arr_count):
+                base = app_arr_offset + i * app_entry_size
+                t1 = _dword_at(ptr, base + 272)
+                fr = _dword_at(ptr, base + 276)
+                if fr > 0 and t1 > best_t1:
+                    best_t1 = t1
+                    target = i
 
-            if app_entry_size == 0 or app_arr_count == 0:
-                return 0.0
-
-            # v2.16+ expone el índice del proceso en primer plano directamente
-            target = None
-            if version >= 0x00020010:
-                idx = _dword_at(ptr, 64)
-                if idx < app_arr_count:
-                    target = idx
-
-            # Fallback: entrada con el frame más reciente
-            if target is None:
-                best_t1 = 0
-                for i in range(app_arr_count):
-                    base = app_arr_offset + i * app_entry_size
-                    t1 = _dword_at(ptr, base + 272)
-                    fr = _dword_at(ptr, base + 276)
-                    if fr > 0 and t1 > best_t1:
-                        best_t1 = t1
-                        target = i
-
-            if target is None:
-                return 0.0
-
-            base       = app_arr_offset + target * app_entry_size
-            frame_time = _dword_at(ptr, base + 280)
-            time0      = _dword_at(ptr, base + 268)
-            time1      = _dword_at(ptr, base + 272)
-            frames     = _dword_at(ptr, base + 276)
-
-            if frame_time > 0:
-                return round(1_000_000.0 / frame_time, 1)
-            if time1 > time0 and frames > 0:
-                return round(1000.0 * frames / (time1 - time0), 1)
+        if target is None:
             return 0.0
 
-        finally:
-            k32.UnmapViewOfFile(ctypes.c_void_p(ptr))
-            k32.CloseHandle(handle)
+        base       = app_arr_offset + target * app_entry_size
+        frame_time = _dword_at(ptr, base + 280)
+        time0      = _dword_at(ptr, base + 268)
+        time1      = _dword_at(ptr, base + 272)
+        frames     = _dword_at(ptr, base + 276)
 
+        if frame_time > 0:
+            return round(1_000_000.0 / frame_time, 1)
+        if time1 > time0 and frames > 0:
+            return round(1000.0 * frames / (time1 - time0), 1)
+        return 0.0
+
+    finally:
+        k32.UnmapViewOfFile(ctypes.c_void_p(ptr))
+        k32.CloseHandle(handle)
+
+
+def _monitor_refresh_rate() -> float:
+    try:
+        VREFRESH = 116
+        user32 = ctypes.windll.user32
+        gdi32  = ctypes.windll.gdi32
+        hdc = user32.GetDC(None)
+        if hdc:
+            rate = gdi32.GetDeviceCaps(hdc, VREFRESH)
+            user32.ReleaseDC(None, hdc)
+            return float(rate) if rate > 0 else 60.0
+        return 60.0
+    except Exception:
+        return 60.0
+
+
+def get_fps() -> tuple[float, str]:
+    """Devuelve (fps, fuente) donde fuente es 'game' o 'display'."""
+    try:
+        fps = _rtss_fps()
+        if fps > 0:
+            return fps, "game"
     except Exception as e:
         print(f"Error leyendo RTSS: {e}")
-        return 0.0
+    return _monitor_refresh_rate(), "display"
 
 
 # --- Multimedia ---
@@ -184,7 +203,8 @@ if __name__ == "__main__":
     gpu = get_gpu_metrics()
     print(f"GPU Uso:    {gpu['gpu_usage']} %")
     print(f"GPU Temp:   {gpu['gpu_temp']} °C")
-    print(f"FPS:        {get_fps()}")
+    fps_val, fps_src = get_fps()
+    print(f"FPS:        {fps_val} ({fps_src})")
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

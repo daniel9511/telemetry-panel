@@ -79,9 +79,9 @@
     <div class="secondary-row">
 
         <div class="card card-fps">
-            <div class="card-label">FRAMES / SEC</div>
+            <div class="card-label" id="fps-label">DISPLAY HZ</div>
             <div class="card-value card-value--fps">
-                <span id="fps-val">0.0</span>
+                <span id="fps-val">0.0</span><span class="unit" id="fps-unit">Hz</span>
             </div>
         </div>
 
@@ -136,7 +136,10 @@
         document.getElementById('gpu-temp').textContent  = (d.gpu_temp   || 0).toFixed(1);
         setBar('temp-bar', tempPct);
 
-        document.getElementById('fps-val').textContent   = (d.fps        || 0).toFixed(1);
+        var isGame = d.fps_source === 'game';
+        document.getElementById('fps-val').textContent   = (d.fps || 0).toFixed(1);
+        document.getElementById('fps-unit').textContent  = isGame ? 'FPS' : 'Hz';
+        document.getElementById('fps-label').textContent = isGame ? 'FRAMES / SEC' : 'DISPLAY HZ';
 
         var badge = document.getElementById('media-status');
         badge.textContent  = d.media_status || '—';

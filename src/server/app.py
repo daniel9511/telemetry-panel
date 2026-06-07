@@ -31,6 +31,7 @@ sensor_cache: dict = {
     "gpu_usage": 0.0,
     "gpu_temp": 0.0,
     "fps": 0.0,
+    "fps_source": "display",
     "media_status": "",
     "media_title": "",
 }
@@ -50,7 +51,8 @@ def _sensor_loop():
                 "ram_percent": ram["ram_percent"],
                 "gpu_usage": gpu["gpu_usage"],
                 "gpu_temp": gpu["gpu_temp"],
-                "fps": get_fps(),
+                "fps": (fps_data := get_fps())[0],
+                "fps_source": fps_data[1],
                 "media_status": media["media_status"],
                 "media_title": media["media_title"],
             })
