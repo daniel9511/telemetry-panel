@@ -1,4 +1,4 @@
-# JARVIS Telemetry Panel
+# KIRA Telemetry Panel
 
 Panel web de telemetría en tiempo real para PC, diseñado para ser monitoreado desde una tablet vía WiFi en red local. Muestra CPU, RAM, GPU y estado multimedia con una interfaz estilo HUD.
 

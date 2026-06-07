@@ -1,0 +1,4 @@
+C:\Users\danie\Documents\projects\telemetry-panel\tools\bin\gpu_sensor.pdb
+C:\Users\danie\Documents\projects\telemetry-panel\tools\bin\MonoPosixHelper.dll
+C:\Users\danie\Documents\projects\telemetry-panel\tools\bin\libMonoPosixHelper.dll
+C:\Users\danie\Documents\projects\telemetry-panel\tools\bin\gpu_sensor.exe

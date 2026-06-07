@@ -7,6 +7,7 @@ from flask import Flask, Response, render_template
 
 from src.sensors.sensors import (
     get_cpu_load,
+    get_fps,
     get_gpu_metrics,
     get_media_info,
     get_ram_usage,
@@ -49,6 +50,7 @@ def _sensor_loop():
                 "ram_percent": ram["ram_percent"],
                 "gpu_usage": gpu["gpu_usage"],
                 "gpu_temp": gpu["gpu_temp"],
+                "fps": get_fps(),
                 "media_status": media["media_status"],
                 "media_title": media["media_title"],
             })

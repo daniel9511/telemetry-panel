@@ -1,52 +1,14 @@
 import asyncio
+import ctypes
+import json
 import os
+import struct
 import subprocess
-import sys
 
 import psutil
 
-# --- OHM: se intenta cargar UNA vez al importar el módulo ---
-_ohm_available = False
-_computer = None
-
-
-def _init_ohm():
-    global _ohm_available, _computer
-
-    dll_path = os.environ.get("OHM_DLL_PATH", "")
-
-    if not dll_path:
-        candidates = [
-            r"C:\Program Files\OpenHardwareMonitor\OpenHardwareMonitorLib.dll",
-            r"C:\OpenHardwareMonitor\OpenHardwareMonitorLib.dll",
-            r"C:\Program Files (x86)\OpenHardwareMonitor\OpenHardwareMonitorLib.dll",
-        ]
-        for path in candidates:
-            if os.path.exists(path):
-                dll_path = path
-                break
-
-    if not dll_path:
-        print("OHM DLL no encontrada. GPU temp = 0.0 (solo uso via WMI).")
-        return
-
-    try:
-        dll_dir = os.path.dirname(dll_path)
-        if dll_dir not in sys.path:
-            sys.path.append(dll_dir)
-        import clr
-        clr.AddReference("OpenHardwareMonitorLib")
-        from OpenHardwareMonitor.Hardware import Computer
-        _computer = Computer()
-        _computer.GPUEnabled = True
-        _computer.Open()
-        _ohm_available = True
-        print(f"OHM cargado: {dll_path}")
-    except Exception as e:
-        print(f"OHM no disponible ({e}). GPU temp = 0.0.")
-
-
-_init_ohm()
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_GPU_EXE = os.path.join(_PROJECT_ROOT, "tools", "bin", "gpu_sensor.exe")
 
 # --- Event loop para winsdk (se inicializa en el hilo sensor) ---
 _media_loop: asyncio.AbstractEventLoop | None = None
@@ -83,52 +45,94 @@ def get_ram_usage() -> dict:
 
 # --- GPU ---
 
-def _get_gpu_via_ohm() -> dict:
-    metrics = {"gpu_usage": 0.0, "gpu_temp": 0.0}
-    try:
-        from OpenHardwareMonitor.Hardware import SensorType
-        for hw in _computer.Hardware:
-            if "gpu" not in hw.Name.lower():
-                continue
-            hw.Update()
-            for sensor in hw.Sensors:
-                try:
-                    if sensor.Value is None:
-                        continue
-                    val = float(sensor.Value)
-                    if sensor.SensorType == SensorType.Load:
-                        metrics["gpu_usage"] = round(val, 1)
-                    elif sensor.SensorType == SensorType.Temperature:
-                        metrics["gpu_temp"] = round(val, 1)
-                except Exception:
-                    continue
-    except Exception as e:
-        print(f"Error leyendo OHM: {e}")
-    return metrics
-
-
-def _get_gpu_via_wmi() -> dict:
-    metrics = {"gpu_usage": 0.0, "gpu_temp": 0.0}
-    try:
-        cmd = [
-            "powershell.exe", "-NoProfile", "-Command",
-            "$g = Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine | "
-            "Measure-Object -Property UtilizationPercentage -Sum; "
-            "if ($g.Sum) { Write-Output $g.Sum } else { Write-Output 0 }",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=5)
-        val = result.stdout.strip().replace(",", ".")
-        if val:
-            metrics["gpu_usage"] = round(min(float(val), 100.0), 1)
-    except Exception as e:
-        print(f"Error obteniendo GPU via WMI: {e}")
-    return metrics
-
-
 def get_gpu_metrics() -> dict:
-    if _ohm_available:
-        return _get_gpu_via_ohm()
-    return _get_gpu_via_wmi()
+    metrics = {"gpu_usage": 0.0, "gpu_temp": 0.0}
+    try:
+        result = subprocess.run(
+            [_GPU_EXE],
+            capture_output=True, text=True, timeout=5,
+        )
+        data = json.loads(result.stdout.strip())
+        metrics["gpu_usage"] = round(min(float(data.get("gpu_usage", 0.0)), 100.0), 1)
+        metrics["gpu_temp"] = round(float(data.get("gpu_temp", 0.0)), 1)
+    except Exception as e:
+        print(f"Error obteniendo GPU: {e}")
+    return metrics
+
+
+# --- FPS via RTSS shared memory ---
+
+def _dword_at(ptr: int, offset: int) -> int:
+    return ctypes.c_uint32.from_address(ptr + offset).value
+
+
+def get_fps() -> float:
+    try:
+        k32 = ctypes.windll.kernel32
+        k32.OpenFileMappingW.restype = ctypes.c_void_p
+        k32.MapViewOfFile.restype    = ctypes.c_void_p
+
+        handle = k32.OpenFileMappingW(0x0004, False, "RTSSSharedMemoryV2")
+        if not handle:
+            return 0.0
+
+        ptr = k32.MapViewOfFile(handle, 0x0004, 0, 0, 0)
+        if not ptr:
+            k32.CloseHandle(handle)
+            return 0.0
+
+        try:
+            if _dword_at(ptr, 0) != 0x52545353:  # firma 'RTSS'
+                return 0.0
+
+            version        = _dword_at(ptr, 4)
+            app_entry_size = _dword_at(ptr, 8)
+            app_arr_offset = _dword_at(ptr, 12)
+            app_arr_count  = _dword_at(ptr, 16)
+
+            if app_entry_size == 0 or app_arr_count == 0:
+                return 0.0
+
+            # v2.16+ expone el índice del proceso en primer plano directamente
+            target = None
+            if version >= 0x00020010:
+                idx = _dword_at(ptr, 64)
+                if idx < app_arr_count:
+                    target = idx
+
+            # Fallback: entrada con el frame más reciente
+            if target is None:
+                best_t1 = 0
+                for i in range(app_arr_count):
+                    base = app_arr_offset + i * app_entry_size
+                    t1 = _dword_at(ptr, base + 272)
+                    fr = _dword_at(ptr, base + 276)
+                    if fr > 0 and t1 > best_t1:
+                        best_t1 = t1
+                        target = i
+
+            if target is None:
+                return 0.0
+
+            base       = app_arr_offset + target * app_entry_size
+            frame_time = _dword_at(ptr, base + 280)
+            time0      = _dword_at(ptr, base + 268)
+            time1      = _dword_at(ptr, base + 272)
+            frames     = _dword_at(ptr, base + 276)
+
+            if frame_time > 0:
+                return round(1_000_000.0 / frame_time, 1)
+            if time1 > time0 and frames > 0:
+                return round(1000.0 * frames / (time1 - time0), 1)
+            return 0.0
+
+        finally:
+            k32.UnmapViewOfFile(ctypes.c_void_p(ptr))
+            k32.CloseHandle(handle)
+
+    except Exception as e:
+        print(f"Error leyendo RTSS: {e}")
+        return 0.0
 
 
 # --- Multimedia ---
@@ -180,8 +184,8 @@ if __name__ == "__main__":
     gpu = get_gpu_metrics()
     print(f"GPU Uso:    {gpu['gpu_usage']} %")
     print(f"GPU Temp:   {gpu['gpu_temp']} °C")
+    print(f"FPS:        {get_fps()}")
 
-    # Multimedia requiere event loop
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     _media_loop = loop
