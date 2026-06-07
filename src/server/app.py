@@ -3,9 +3,10 @@ import os
 import threading
 import time
 
-from flask import Flask, Response, render_template, send_from_directory
+from flask import Flask, Response, render_template, send_from_directory, request
 
 from src.sensors.audio import get_spectrum, start_audio_thread
+
 from src.sensors.sensors import (
     get_cpu_load,
     get_fps,
@@ -13,6 +14,7 @@ from src.sensors.sensors import (
     get_media_info,
     get_ram_usage,
     init_media_loop,
+    media_command,
 )
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -121,3 +123,9 @@ def stream():
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.route("/media/<action>", methods=["POST"])
+def media_control(action):
+    media_command(action)
+    return "", 204

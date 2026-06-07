@@ -1,0 +1,62 @@
+/* ==========================================================================
+   JARVIS HOLOGRAPHIC VISUALIZER - STANDALONE COMPONENT STYLES
+   ========================================================================== */
+
+:root {
+  /* Color Palette (Cyan Jarvis Theme) */
+  --glow-color: rgba(0, 240, 255, 0.6);
+  --glow-color-solid: rgb(0, 240, 255);
+  --glow-color-dim: rgba(0, 240, 255, 0.25);
+  --glow-color-faint: rgba(0, 240, 255, 0.08);
+  --bg-color: #03050d;
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-color);
+  overflow: hidden;
+}
+
+/* Standalone container: takes 100% of parent width and height */
+.visualizer-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(13, 20, 48, 0.15) 0%, transparent 80%);
+  /* Sci-fi grid overlay background */
+  background-image: 
+    linear-gradient(var(--glow-color-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--glow-color-faint) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center center;
+}
+
+#jarvis-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Sci-fi Corner Brackets decoration */
+.corner-bracket {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--glow-color-dim);
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.corner-bracket.top-left { top: 15px; left: 15px; border-right: none; border-bottom: none; }
+.corner-bracket.top-right { top: 15px; right: 15px; border-left: none; border-bottom: none; }
+.corner-bracket.bottom-left { bottom: 15px; left: 15px; border-right: none; border-top: none; }
+.corner-bracket.bottom-right { bottom: 15px; right: 15px; border-left: none; border-top: none; }
+
+/* Pulse bracket glow on hover */
+.visualizer-container:hover .corner-bracket {
+  border-color: var(--glow-color-solid);
+  filter: drop-shadow(0 0 5px var(--glow-color-solid));
+}

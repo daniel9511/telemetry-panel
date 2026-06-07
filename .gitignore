@@ -49,3 +49,7 @@ Thumbs.db
 # Artefactos de build C# (se regeneran con dotnet publish)
 tools/gpu_sensor/bin/
 tools/gpu_sensor/obj/
+
+# Driver WinRing0 que LibreHardwareMonitor instala en runtime
+tools/bin/*.sys
+tools/bin/*.pdb

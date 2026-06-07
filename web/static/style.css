@@ -344,47 +344,152 @@ body::after {
 .media-body {
     flex: 1;
     display: flex;
-    align-items: flex-end;
-    gap: 24px;
-    margin-top: 16px;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
     min-height: 0;
 }
 
-.media-left {
+/* ── JARVIS REACTOR ZONE — cuadrado fijo centrado ────────── */
+.jarvis-zone {
+    flex-shrink: 0;
+    width: 220px;
+    height: 220px;
+    position: relative;
+    overflow: hidden;
+}
+
+#jarvis-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* ── MEDIA BOTTOM — título + avatar en fila ──────────────── */
+.media-bottom {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 0;
+    padding: 0 8px;
+}
+
+/* ── MEDIA CONTROLS — neon border-snake (btn-76 pattern) ──── */
+.media-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.ctrl-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    /* glow + color kick in after the snake (~0.48s) */
+    transition: color 0.10s linear 0.48s,
+                background 0.10s linear 0.48s,
+                box-shadow 0.10s linear 0.48s;
+}
+
+/* dim static border via pseudo — fades out on hover */
+.ctrl-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--border);
+    pointer-events: none;
+    transition: opacity 0.05s;
+}
+.ctrl-btn:hover::before { opacity: 0; }
+
+.ctrl-btn:hover {
+    color: var(--cyan);
+    background: rgba(0,212,255,0.06);
+    box-shadow: 0 0 10px rgba(0,212,255,0.30),
+                inset 0 0 8px rgba(0,212,255,0.06);
+}
+
+/* snake border segments — each a thin strip (1px) */
+.bdr {
+    display: block;
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    transition: none;
+}
+
+.bdr-t { top:0; left:0; width:100%; height:1px; background:var(--cyan); transform:translateX(-100%); }
+.bdr-r { top:0; right:0; width:1px; height:100%; background:var(--cyan); transform:translateY(-100%); }
+.bdr-b { bottom:0; right:0; width:100%; height:1px; background:var(--cyan); transform:translateX(100%);  }
+.bdr-l { bottom:0; left:0; width:1px; height:100%; background:var(--cyan); transform:translateY(100%);  }
+
+/* clockwise snake: top → right → bottom → left, 0.12s each */
+.ctrl-btn:hover .bdr-t { opacity:1; transform:translateX(0); transition:transform 0.12s linear,       opacity 0s;       }
+.ctrl-btn:hover .bdr-r { opacity:1; transform:translateY(0); transition:transform 0.12s linear 0.12s, opacity 0s 0.12s; }
+.ctrl-btn:hover .bdr-b { opacity:1; transform:translateX(0); transition:transform 0.12s linear 0.24s, opacity 0s 0.24s; }
+.ctrl-btn:hover .bdr-l { opacity:1; transform:translateY(0); transition:transform 0.12s linear 0.36s, opacity 0s 0.36s; }
+
+/* main play/pause — slightly larger, starts with brighter border */
+.ctrl-btn--main {
+    width: 42px;
+    height: 42px;
+    font-size: 14px;
+    color: var(--cyan);
+}
+.ctrl-btn--main::before { border-color: var(--cyan-mid); }
+
+.media-avatar {
+    flex-shrink: 0;
+    width: 120px;
+    align-self: stretch;
+    position: relative;
+}
+
+.media-text {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    justify-content: center;
+    gap: 5px;
 }
 
-.media-avatar {
-    flex-shrink: 0;
-    width: 200px;
-    height: 200px;
-    position: relative;
-}
-
-/* Audio spectrum canvas — reemplaza las EQ bars CSS */
-.audio-canvas {
-    display: block;
-    width: 100%;
-    height: 90px;
-    flex-shrink: 0;
-    background: transparent;
-}
-
-.media-title {
-    font-size: 16px;
-    letter-spacing: 1px;
-    line-height: 1.55;
-    color: var(--text);
+.media-artist {
+    font-size: 8px;
+    letter-spacing: 4px;
+    color: var(--text-lbl);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    display: block;
-    flex: 1;
-    min-width: 0;
+}
+
+.media-title {
+    font-size: 18px;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+    color: #ffffff;
+    text-shadow: var(--glow-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ── FOOTER ──────────────────────────────────────────────── */

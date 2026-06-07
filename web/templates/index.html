@@ -98,14 +98,36 @@
                 <span class="media-badge" id="media-status">—</span>
             </div>
             <div class="media-body">
-                <div class="media-left">
-                    <canvas id="audio-canvas" class="audio-canvas" width="760" height="90"></canvas>
-                    <span id="media-title" class="media-title">Sin reproducción activa</span>
+                <div class="jarvis-zone">
+                    <canvas id="jarvis-canvas"></canvas>
                 </div>
-                <div class="media-avatar">
-                    <div class="avatar-float">
-                        <img id="avatar-a" class="avatar-img" src="" alt="">
-                        <img id="avatar-b" class="avatar-img" src="" alt="">
+                <div class="media-bottom">
+                    <div class="media-text">
+                        <span id="media-artist" class="media-artist">—</span>
+                        <span id="media-title"  class="media-title">Sin reproducción activa</span>
+                        <div class="media-controls">
+                            <button class="ctrl-btn" onclick="mediaCmd('prev')">
+                                <span class="bdr bdr-t"></span><span class="bdr bdr-r"></span>
+                                <span class="bdr bdr-b"></span><span class="bdr bdr-l"></span>
+                                &#9664;&#9664;
+                            </button>
+                            <button class="ctrl-btn ctrl-btn--main" id="btn-playpause" onclick="mediaCmd('playpause')">
+                                <span class="bdr bdr-t"></span><span class="bdr bdr-r"></span>
+                                <span class="bdr bdr-b"></span><span class="bdr bdr-l"></span>
+                                &#9654;
+                            </button>
+                            <button class="ctrl-btn" onclick="mediaCmd('next')">
+                                <span class="bdr bdr-t"></span><span class="bdr bdr-r"></span>
+                                <span class="bdr bdr-b"></span><span class="bdr bdr-l"></span>
+                                &#9654;&#9654;
+                            </button>
+                        </div>
+                    </div>
+                    <div class="media-avatar">
+                        <div class="avatar-float">
+                            <img id="avatar-a" class="avatar-img" src="" alt="">
+                            <img id="avatar-b" class="avatar-img" src="" alt="">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -206,8 +228,15 @@
         badge.textContent = st || '—';
         badge.className = 'media-badge' +
             (st === 'Reproduciendo' ? ' playing' : st === 'Pausado' ? ' paused' : '');
-        document.getElementById('media-title').textContent =
-            d.media_title || 'Sin reproducción activa';
+        var raw    = d.media_title || '';
+        var parts  = raw.split(' · ');
+        var artist = parts.length > 1 ? parts[0] : '';
+        var title  = parts.length > 1 ? parts.slice(1).join(' · ') : (raw || 'Sin reproducción activa');
+        document.getElementById('media-artist').textContent = artist ? artist.toUpperCase() : '—';
+        document.getElementById('media-title').textContent  = title || 'Sin reproducción activa';
+
+        var ppBtn = document.getElementById('btn-playpause');
+        if (ppBtn) ppBtn.innerHTML = (st === 'Reproduciendo') ? '&#9646;&#9646;' : '&#9654;';
     }
 
     // Avatar — cross-fade entre dos slots (A/B) + movimiento flotante vía CSS
@@ -262,59 +291,377 @@
         setInterval(rotateAvatar, 180000);
     });
 
-    // ── Audio visualizer ──────────────────────────────────────
-    var audioBands = new Array(24).fill(0);
+    // ── JARVIS — parámetros editables ────────────────────────
+    var JARVIS = {
+        coreSpeed:     1.0,  // velocidad de rotación del arc central  (0.5 lento – 3.0 rápido)
+        particleCount: 28,   // cantidad de partículas orbitando       (10 – 80)
+        particleSpeed: 1.0,  // velocidad base de las partículas       (0.3 lento – 2.5 rápido)
+        fps:           20,   // frames por segundo del canvas          (15 – 60)
+    };
+
+    // ── JARVIS Reactor — Live Audio Engine ───────────────────
+    // Adapts SSE bands (24×0-100) to the interface JarvisVisualizer expects.
+    var LiveAudioEngine = (function() {
+        function LiveAudioEngine() {
+            this.bufferLength = 256;
+            this.freqData = new Uint8Array(this.bufferLength);
+            this._bands   = new Array(24).fill(0);
+            this._avgBass = 0;
+            this._beat = false;
+        }
+
+        LiveAudioEngine.prototype.update = function(bands) {
+            this._bands = bands;
+            // Expand 24 bands → 256 bins (linear fill, each band covers ~10-11 bins)
+            var bpb = this.bufferLength / 24;
+            for (var i = 0; i < 24; i++) {
+                var v = Math.round(bands[i] * 2.55);
+                var s = Math.floor(i * bpb), e = Math.floor((i + 1) * bpb);
+                for (var j = s; j < e; j++) this.freqData[j] = v;
+            }
+            // Adaptive beat detection: fires when bass spikes 30% above its own recent average.
+            // Uses bands[1],[3],[4] — band[0] and [2] are often 0 (DC/filter artifact).
+            var bass = (bands[1] + bands[3] + bands[4]) / 3 / 100;
+            var threshold = Math.max(0.12, this._avgBass * 1.30);
+            this._beat = (bass > threshold);
+            this._avgBass = this._avgBass * 0.90 + bass * 0.10;
+        };
+
+        LiveAudioEngine.prototype.getAverages = function() {
+            var b = this._bands, midS = 0, treS = 0;
+            // Use bands[1..4] for bass — skip [0] and [2] which are DC/filter artifacts
+            var bass   = (b[1] + b[3] + b[4] + b[5]) / 4 / 100;
+            for (var i = 5;  i < 15; i++) midS += b[i];
+            for (var i = 15; i < 24; i++) treS += b[i];
+            var mid    = midS / 10 / 100;
+            var treble = treS / 9  / 100;
+            var rms    = Math.min(1, Math.sqrt((bass*bass + mid*mid + treble*treble) / 3) * 1.6);
+            return { bass: bass, mid: mid, treble: treble, rms: rms };
+        };
+
+        LiveAudioEngine.prototype.isTransientDetected = function() {
+            return this._beat;
+        };
+
+        return LiveAudioEngine;
+    })();
+
+    // ── JARVIS Reactor — Canvas Renderer (tablet-optimized) ──
+    // Scaled proportionally to the canvas size via R = min(W,H)*0.46.
+    // No shadowBlur on particles, no glitch drawImage, 20fps cap.
+    var JarvisVisualizer = (function() {
+        function JarvisVisualizer(canvasId, audio) {
+            this.canvas = document.getElementById(canvasId);
+            this.ctx    = this.canvas.getContext('2d');
+            this.audio  = audio;
+
+            this.coreAngle  = 0;
+            this.ringAngles = [0,0,0,0,0].map(function() { return Math.random() * Math.PI * 2; });
+            this.particles  = [];
+
+            // KIRA cyan
+            this.C = {
+                solid: 'rgb(0,212,255)',
+                faint: 'rgba(0,212,255,0.07)',
+                dim:   'rgba(0,212,255,0.25)'
+            };
+
+            this.lastTime  = performance.now();
+            this.lastFrame = 0;
+
+            var self = this;
+            window.addEventListener('resize', function() { self._resize(); });
+            this._resize();
+        }
+
+        JarvisVisualizer.prototype._resize = function() {
+            var p = this.canvas.parentElement;
+            this.canvas.width  = p.clientWidth;
+            this.canvas.height = p.clientHeight;
+        };
+
+        JarvisVisualizer.prototype._mkParticle = function(rand, burst, R) {
+            var minR = R * 0.34, maxR = R * 0.88;
+            var br = rand ? (minR + Math.random() * (maxR - minR)) : minR;
+            var a  = Math.random() * Math.PI * 2;
+            if (burst) {
+                var life = 0.6 + Math.random() * 0.5;
+                return { burst:true, angle:a, radius:minR, radialSpeed: 2.2 + Math.random()*3,
+                         size: 0.9 + Math.random()*1.4, alpha:1, life:life, maxLife:life };
+            }
+            return { burst:false, angle:a, baseRadius:br, radius:br,
+                     orbitSpeed:(0.15 + Math.random()*0.28) * (Math.random()>0.5?1:-1),
+                     speedPhase:Math.random()*100, size:0.7+Math.random()*1.4, alpha:0.1 };
+        };
+
+        JarvisVisualizer.prototype._updateParts = function(avgs, beat, dt, R) {
+            var self = this;
+            while (this.particles.length < JARVIS.particleCount)
+                this.particles.push(this._mkParticle(true, false, R));
+            if (this.particles.length > JARVIS.particleCount)
+                this.particles.length = JARVIS.particleCount;
+
+            if (beat) {
+                var burst = Math.floor(this.NPARTS * 0.22);
+                for (var i = 0; i < burst; i++) {
+                    var idx = Math.floor(Math.random() * this.particles.length);
+                    this.particles[idx] = this._mkParticle(false, true, R);
+                }
+            }
+
+            var spd = (0.20 + avgs.treble * 0.55) * JARVIS.particleSpeed;
+            var now = performance.now();
+            for (var i = 0; i < this.particles.length; i++) {
+                var p = this.particles[i];
+                if (p.burst) {
+                    p.radius += p.radialSpeed * spd * dt * 60;
+                    p.life   -= dt;
+                    p.alpha   = Math.max(0, p.life / p.maxLife);
+                    if (p.life <= 0 || p.radius > R * 1.1)
+                        this.particles[i] = this._mkParticle(true, false, R);
+                } else {
+                    p.angle  += p.orbitSpeed * spd * dt;
+                    var drift = Math.sin(now * 0.002 + p.speedPhase) * R * 0.06 * avgs.bass;
+                    p.radius  = p.baseRadius + drift;
+                    if (p.alpha < 1) p.alpha += dt * 2;
+                }
+            }
+        };
+
+        JarvisVisualizer.prototype._drawGrid = function(cx, cy, R) {
+            var ctx = this.ctx;
+            ctx.save();
+            ctx.strokeStyle = this.C.faint;
+            ctx.lineWidth = 1;
+            // Concentric circles at 0.3, 0.58, 0.86 of R
+            var rings = [0.30, 0.58, 0.86];
+            for (var i = 0; i < rings.length; i++) {
+                ctx.beginPath();
+                ctx.arc(cx, cy, R * rings[i], 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            // Cross-axis lines with gap around the core
+            var gap = R * 0.56;
+            ctx.beginPath();
+            ctx.moveTo(cx - R, cy);  ctx.lineTo(cx - gap, cy);
+            ctx.moveTo(cx + gap, cy); ctx.lineTo(cx + R, cy);
+            ctx.moveTo(cx, cy - R);  ctx.lineTo(cx, cy - gap);
+            ctx.moveTo(cx, cy + gap); ctx.lineTo(cx, cy + R);
+            ctx.stroke();
+            ctx.restore();
+        };
+
+        JarvisVisualizer.prototype._drawParts = function(cx, cy) {
+            var ctx = this.ctx;
+            ctx.save();
+            // No shadowBlur — major performance save on old GPU
+            for (var i = 0; i < this.particles.length; i++) {
+                var p = this.particles[i];
+                if (p.alpha <= 0.02) continue;
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle   = this.C.solid;
+                ctx.beginPath();
+                ctx.arc(cx + Math.cos(p.angle)*p.radius, cy + Math.sin(p.angle)*p.radius,
+                        p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        };
+
+        JarvisVisualizer.prototype._drawRings = function(cx, cy, R, avgs, dt) {
+            var ctx  = this.ctx;
+            var data = this.audio.freqData;
+            var dlen = data.length;
+            ctx.save();
+            ctx.strokeStyle = this.C.solid;
+
+            // Ring radii as fractions of R
+            var fracs = [0.48, 0.58, 0.68, 0.78, 0.88];
+            var dirs  = [1, -1, 1, -1, 1];
+
+            for (var r = 0; r < 5; r++) {
+                var radius = R * fracs[r];
+                var fv = r===0 ? avgs.bass
+                       : r===1 ? (avgs.bass+avgs.mid)/2
+                       : r===2 ? avgs.mid
+                       : r===3 ? (avgs.mid+avgs.treble)/2
+                       : avgs.treble;
+
+                this.ringAngles[r] += (0.012 + fv * 0.11) * dirs[r] * dt * 60;
+
+                if (r === 0) {
+                    // Segmented arc — 4 arcs, gap driven by signal
+                    ctx.lineWidth   = 2;
+                    ctx.shadowBlur  = 6 * fv;
+                    ctx.shadowColor = this.C.solid;
+                    ctx.globalAlpha = 0.20 + fv * 0.80;
+                    var segs = 4, segA = Math.PI * 2 / segs;
+                    var gap  = 0.12 + (1 - fv) * 0.70;
+                    for (var s = 0; s < segs; s++) {
+                        var st = this.ringAngles[r] + s * segA;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, radius, st, st + segA - gap);
+                        ctx.stroke();
+                    }
+                } else if (r === 1) {
+                    // Tick ring — 24 ticks (reduced from 48)
+                    ctx.lineWidth   = 1;
+                    ctx.shadowBlur  = 3 * fv;
+                    ctx.shadowColor = this.C.solid;
+                    ctx.globalAlpha = 0.2 + fv * 0.5;
+                    var ticks = 24, tlen = R * 0.04 + fv * R * 0.07;
+                    for (var i = 0; i < ticks; i++) {
+                        var ang = this.ringAngles[r] + (i * Math.PI * 2) / ticks;
+                        var cos = Math.cos(ang), sin = Math.sin(ang);
+                        ctx.beginPath();
+                        ctx.moveTo(cx + cos*(radius-2), cy + sin*(radius-2));
+                        ctx.lineTo(cx + cos*(radius+tlen-2), cy + sin*(radius+tlen-2));
+                        ctx.stroke();
+                    }
+                } else if (r === 2) {
+                    // Spectral bar ring — 32 bars reading freqData
+                    ctx.lineWidth   = 1.5;
+                    ctx.shadowBlur  = 0;
+                    ctx.globalAlpha = 0.5 + fv * 0.38;
+                    var bars = 32, startBin = Math.floor(dlen * 0.14);
+                    var step = Math.floor((dlen * 0.65) / bars);
+                    for (var i = 0; i < bars; i++) {
+                        var ang = this.ringAngles[r] + (i * Math.PI * 2) / bars;
+                        var amp = (data[startBin + i * step] / 255) * R * 0.14;
+                        var cos = Math.cos(ang), sin = Math.sin(ang);
+                        ctx.beginPath();
+                        ctx.moveTo(cx + cos*radius, cy + sin*radius);
+                        ctx.lineTo(cx + cos*(radius+amp), cy + sin*(radius+amp));
+                        ctx.stroke();
+                    }
+                } else if (r === 3) {
+                    // Double thin ring — static reference
+                    ctx.lineWidth   = 0.8;
+                    ctx.shadowBlur  = 0;
+                    ctx.globalAlpha = 0.3;
+                    ctx.beginPath(); ctx.arc(cx, cy, radius,   0, Math.PI*2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(cx, cy, radius+4, 0, Math.PI*2); ctx.stroke();
+                } else {
+                    // 3-arc sweep with endpoint dots
+                    ctx.lineWidth   = 1;
+                    ctx.shadowBlur  = 3 * fv;
+                    ctx.shadowColor = this.C.solid;
+                    ctx.globalAlpha = 0.1 + fv * 0.58;
+                    var arcLen = Math.PI * 0.24;
+                    for (var s = 0; s < 3; s++) {
+                        var st  = this.ringAngles[r] + (s * Math.PI * 2) / 3;
+                        var end = st + arcLen;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, radius, st, end);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.arc(cx + Math.cos(end)*radius, cy + Math.sin(end)*radius, 2, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                }
+            }
+            ctx.restore();
+        };
+
+        JarvisVisualizer.prototype._drawCore = function(cx, cy, R, avgs) {
+            var ctx   = this.ctx;
+            var pulse = 1.0 + avgs.bass * 0.50;
+            var baseR = R * 0.30 * pulse;
+            ctx.save();
+
+            ctx.shadowColor = this.C.solid;
+            ctx.shadowBlur  = 4 + avgs.bass * 22;
+            ctx.strokeStyle = this.C.solid;
+
+            // Outer ring
+            ctx.lineWidth   = 2.5;
+            ctx.globalAlpha = 0.82;
+            ctx.beginPath();
+            ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Arc-reactor cells (8 segments, rotating)
+            ctx.lineWidth = 1.5;
+            var cells = 8, cellA = Math.PI * 2 / cells, gap = 0.16;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(this.coreAngle);
+            for (var i = 0; i < cells; i++) {
+                var st  = i * cellA + gap;
+                var end = (i + 1) * cellA - gap;
+                ctx.beginPath();
+                ctx.arc(0, 0, baseR - 5, st, end);
+                ctx.lineTo(Math.cos(end) * (baseR - 14), Math.sin(end) * (baseR - 14));
+                ctx.arc(0, 0, baseR - 14, end, st, true);
+                ctx.closePath();
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // Core dot
+            ctx.fillStyle   = this.C.solid;
+            ctx.globalAlpha = 0.92;
+            ctx.beginPath();
+            ctx.arc(cx, cy, baseR * 0.30, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        };
+
+        JarvisVisualizer.prototype.draw = function(ts) {
+            if (ts - this.lastFrame < 1000 / JARVIS.fps) return;
+            this.lastFrame = ts;
+
+            var dt = Math.max(0, Math.min(0.05, (ts - this.lastTime) / 1000));
+            this.lastTime = ts;
+
+            // Auto-resize if container changed
+            var p = this.canvas.parentElement;
+            if (this.canvas.width !== p.clientWidth || this.canvas.height !== p.clientHeight)
+                this._resize();
+
+            var W = this.canvas.width, H = this.canvas.height;
+            var cx = W / 2, cy = H / 2;
+            var R  = Math.min(W, H) * 0.46;
+
+            var avgs = this.audio.getAverages();
+            var beat = this.audio.isTransientDetected();
+
+            this.coreAngle += (0.04 + avgs.bass * 0.22) * JARVIS.coreSpeed * dt * 60 * (Math.PI / 180);
+            this._updateParts(avgs, beat, dt, R);
+
+            this.ctx.clearRect(0, 0, W, H);
+
+            this._drawGrid(cx, cy, R);
+            this._drawParts(cx, cy);
+            this._drawRings(cx, cy, R, avgs, dt);
+            this._drawCore(cx, cy, R, avgs);
+        };
+
+        return JarvisVisualizer;
+    })();
+
+    // ── Boot: audio SSE → engine → renderer ──────────────────
+    var liveAudio = new LiveAudioEngine();
+    var jarvis    = new JarvisVisualizer('jarvis-canvas', liveAudio);
 
     function connectAudioSSE() {
         var es = new EventSource('/stream/audio');
         es.onmessage = function(e) {
-            try { audioBands = JSON.parse(e.data).bands; } catch(x) {}
+            try { liveAudio.update(JSON.parse(e.data).bands); } catch(x) {}
         };
         es.onerror = function() { es.close(); setTimeout(connectAudioSSE, 3000); };
     }
     connectAudioSSE();
 
-    (function() {
-        var canvas  = document.getElementById('audio-canvas');
-        var ctx     = canvas.getContext('2d');
-        var W       = canvas.width, H = canvas.height;
-        var midY    = Math.floor(H / 2);
-        var n       = 24;
-        var barW    = Math.floor((W - n + 1) / n);
-        var step    = barW + 1;
-        var offX    = Math.floor((W - step * n + 1) / 2);
-        var lastTs  = 0;
-        var FRAME   = 1000 / 20;   // 20fps — audio actualiza a 10fps, sobra
+    (function renderLoop(ts) {
+        jarvis.draw(ts);
+        requestAnimationFrame(renderLoop);
+    })(performance.now());
 
-        function drawLoop(ts) {
-            requestAnimationFrame(drawLoop);
-            if (ts - lastTs < FRAME) return;
-            lastTs = ts;
-
-            ctx.clearRect(0, 0, W, H);
-
-            ctx.fillStyle = 'rgba(0,212,255,0.18)';
-            ctx.fillRect(0, midY, W, 1);
-
-            for (var i = 0; i < n; i++) {
-                var val   = audioBands[i] / 100;
-                var bH    = Math.max(2, Math.floor(val * (midY - 2)));
-                var x     = offX + i * step;
-                var alpha = 0.22 + val * 0.78;
-
-                ctx.fillStyle = 'rgba(0,212,255,' + alpha.toFixed(2) + ')';
-                ctx.fillRect(x, midY - bH, barW, bH);
-                ctx.fillRect(x, midY + 1,  barW, bH);
-
-                if (val > 0.04) {
-                    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-                    ctx.fillRect(x, midY - bH, barW, 1);
-                    ctx.fillRect(x, midY + bH, barW, 1);
-                }
-            }
-        }
-        requestAnimationFrame(drawLoop);
-    })();
+    function mediaCmd(action) {
+        fetch('/media/' + action, { method: 'POST' }).catch(function() {});
+    }
 
     // SSE con reconexión automática
     function connectSSE() {

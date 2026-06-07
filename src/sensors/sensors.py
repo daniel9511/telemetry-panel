@@ -3,6 +3,7 @@ import ctypes
 import json
 import os
 import subprocess
+import threading
 
 import psutil
 
@@ -11,6 +12,7 @@ _GPU_EXE = os.path.join(_PROJECT_ROOT, "tools", "bin", "gpu_sensor.exe")
 
 # --- Event loop para winsdk (se inicializa en el hilo sensor) ---
 _media_loop: asyncio.AbstractEventLoop | None = None
+_media_lock = threading.Lock()
 
 
 def init_media_loop():
@@ -181,11 +183,40 @@ async def _get_media_async() -> dict:
 def get_media_info() -> dict:
     if _media_loop is None:
         return {"media_status": "", "media_title": ""}
-    try:
-        return _media_loop.run_until_complete(_get_media_async())
-    except Exception as e:
-        print(f"Error obteniendo multimedia: {e}")
-        return {"media_status": "", "media_title": ""}
+    with _media_lock:
+        try:
+            return _media_loop.run_until_complete(_get_media_async())
+        except Exception as e:
+            print(f"Error obteniendo multimedia: {e}")
+            return {"media_status": "", "media_title": ""}
+
+
+async def _media_command_async(action: str) -> None:
+    from winsdk.windows.media.control import (
+        GlobalSystemMediaTransportControlsSessionManager as GSMTC,
+    )
+    manager = await GSMTC.request_async()
+    session = manager.get_current_session()
+    if not session:
+        return
+    if action == "prev":
+        await session.try_skip_previous_async()
+    elif action == "next":
+        await session.try_skip_next_async()
+    elif action == "playpause":
+        await session.try_toggle_play_pause_async()
+
+
+def media_command(action: str) -> bool:
+    if _media_loop is None or action not in ("prev", "next", "playpause"):
+        return False
+    with _media_lock:
+        try:
+            _media_loop.run_until_complete(_media_command_async(action))
+            return True
+        except Exception as e:
+            print(f"Error en media_command({action}): {e}")
+            return False
 
 
 # --- Test directo del módulo ---
