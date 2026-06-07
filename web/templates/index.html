@@ -22,6 +22,7 @@
             <span class="status-info">AMD RX 7800 XT · WIN11 PRO</span>
         </div>
         <div id="clock" class="hud-clock">00:00:00</div>
+        <button class="fs-btn" onclick="toggleFullscreen()">[ ]</button>
     </header>
 
     <!-- ── MÉTRICAS PRINCIPALES ────────────────────────────────── -->
@@ -81,12 +82,19 @@
     <div class="secondary-row">
 
         <div class="card card--fps">
+
             <div class="card-head">
                 <span class="clabel" id="fps-label">DISPLAY HZ</span>
             </div>
             <div class="fps-wrap">
                 <span id="fps-val" class="fps-num">0</span>
                 <span id="fps-unit" class="fps-unit">Hz</span>
+            </div>
+        </div>
+
+        <div class="card card--avatar">
+            <div class="avatar-wrap">
+                <img id="avatar-img" class="avatar-img" src="" alt="KIRA">
             </div>
         </div>
 
@@ -124,6 +132,20 @@
 </div>
 
 <script>
+    // Pantalla completa
+    function toggleFullscreen() {
+        var el = document.querySelector('.hud');
+        var isFs = document.fullscreenElement || document.mozFullScreenElement;
+        var btn = document.querySelector('.fs-btn');
+        if (!isFs) {
+            (el.requestFullscreen || el.mozRequestFullScreen).call(el);
+            btn.textContent = '[X]';
+        } else {
+            (document.exitFullscreen || document.mozCancelFullScreen).call(document);
+            btn.textContent = '[ ]';
+        }
+    }
+
     // Reloj digital
     function tick() {
         var d = new Date(), z = function(n) { return String(n).padStart(2, '0'); };
@@ -194,6 +216,57 @@
         document.getElementById('media-title').textContent =
             d.media_title || 'Sin reproducción activa';
     }
+
+    // Avatar — rotación aleatoria cada 3 minutos con fade
+    var avatarImages = [
+        '/avatar/Gemini_Generated_Image_9p2h4s9p2h4s9p2h.png',
+        '/avatar/Gemini_Generated_Image_ec29l8ec29l8ec29.png',
+        '/avatar/Gemini_Generated_Image_fcibjofcibjofcib.png',
+        '/avatar/Gemini_Generated_Image_jkkx70jkkx70jkkx.png',
+    ];
+
+    function shuffleArr(arr) {
+        for (var i = arr.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+        }
+        return arr;
+    }
+
+    var avatarQueue = shuffleArr(avatarImages.slice());
+    var avatarIdx = 0;
+    var avatarEl = document.getElementById('avatar-img');
+
+    function setAvatar(src) {
+        avatarEl.style.opacity = '0';
+        setTimeout(function() {
+            avatarEl.onload  = function() { avatarEl.style.opacity = '1'; };
+            avatarEl.onerror = function() { avatarEl.style.opacity = '1'; };
+            avatarEl.src = src;
+            // Si ya estaba cacheada, onload no vuelve a disparar
+            if (avatarEl.complete && avatarEl.naturalWidth > 0) {
+                avatarEl.style.opacity = '1';
+            }
+        }, 500);
+    }
+
+    // Primera imagen: sin espera de fade-out
+    avatarEl.onload  = function() { avatarEl.style.opacity = '1'; };
+    avatarEl.onerror = function() { avatarEl.style.opacity = '1'; };
+    avatarEl.src = avatarQueue[0];
+
+    // Precargar las restantes para que la rotación sea instantánea
+    avatarImages.forEach(function(src) {
+        var pre = new Image(); pre.src = src;
+    });
+
+    // Rotar cada 3 minutos
+    setInterval(function() {
+        avatarIdx = (avatarIdx + 1) % avatarQueue.length;
+        // Al completar un ciclo, re-barajar
+        if (avatarIdx === 0) shuffleArr(avatarQueue);
+        setAvatar(avatarQueue[avatarIdx]);
+    }, 180000);
 
     // SSE con reconexión automática
     function connectSSE() {

@@ -3,7 +3,7 @@ import os
 import threading
 import time
 
-from flask import Flask, Response, render_template
+from flask import Flask, Response, render_template, send_from_directory
 
 from src.sensors.sensors import (
     get_cpu_load,
@@ -64,6 +64,14 @@ def _sensor_loop():
 threading.Thread(target=_sensor_loop, daemon=True, name="sensor-loop").start()
 
 
+AVATAR_DIR = os.path.join(BASE_DIR, "avatar")
+
+
+@app.route("/avatar/<path:filename>")
+def avatar(filename):
+    return send_from_directory(AVATAR_DIR, filename)
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -85,6 +93,5 @@ def stream():
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
         },
     )

@@ -23,6 +23,7 @@
 
 html, body { width: 1280px; height: 800px; overflow: hidden; }
 
+
 body {
     background: var(--bg);
     background-image: radial-gradient(rgba(0, 212, 255, 0.06) 1px, transparent 1px);
@@ -135,10 +136,10 @@ body::after {
     flex-shrink: 0;
 }
 
-/* ── SECONDARY ROW — FPS + MEDIA ─────────────────────────── */
+/* ── SECONDARY ROW — FPS + AVATAR + MEDIA ───────────────── */
 .secondary-row {
     display: grid;
-    grid-template-columns: 230px 1fr;
+    grid-template-columns: 230px 240px 1fr;
     gap: 10px;
     padding: 6px 16px 12px;
     flex: 1;
@@ -288,6 +289,31 @@ body::after {
     letter-spacing: 3px;
 }
 
+/* ── AVATAR CARD ─────────────────────────────────────────── */
+.card--avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.avatar-wrap {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    image-rendering: pixelated;
+}
+
 /* ── MEDIA CARD ──────────────────────────────────────────── */
 .card--media {
     display: flex;
@@ -388,3 +414,20 @@ body::after {
 }
 
 .fdot { color: var(--cyan-mid); }
+
+/* ── FULLSCREEN BUTTON ───────────────────────────────────── */
+.fs-btn {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--cyan-mid);
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 5px 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    outline: none;
+}
+
