@@ -2,31 +2,161 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Telemetría Local</title>
-    <!-- Auto-recarga cada 3 segundos, tal como se especifica en el documento -->
-    <meta http-equiv="refresh" content="3">
+    <meta name="viewport" content="width=1280, initial-scale=1.0">
+    <title>JARVIS PANEL</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="panel-container">
-        <h1>Panel de Telemetría (MVP)</h1>
-        
-        <div class="columns">
-            <div class="col">
-                <h2>Gaming & GPU</h2>
-                <p>FPS: <strong>{{ datos.fps }}</strong></p>
+<div class="hud">
+
+    <!-- ── HEADER ─────────────────────────────────────────── -->
+    <header class="hud-header">
+        <div class="header-brand">
+            <span class="brand-text">JARVIS</span>
+            <span class="brand-sub">TELEMETRY SYSTEM v1.0</span>
+        </div>
+        <div class="header-status">
+            <span class="live-dot">●</span>
+            <span class="live-label">LIVE</span>
+        </div>
+        <div class="header-clock" id="clock">00:00:00</div>
+    </header>
+
+    <div class="hud-line"></div>
+
+    <!-- ── MÉTRICAS PRINCIPALES ───────────────────────────── -->
+    <div class="metrics-row">
+
+        <div class="card">
+            <div class="card-label">CPU LOAD</div>
+            <div class="card-value">
+                <span id="cpu-val">0.0</span><span class="unit">%</span>
             </div>
-            <div class="col">
-                <h2>Sistema</h2>
-                <p>Carga CPU: <strong>{{ datos.cpu_load }}%</strong></p>
-                <p>RAM Usada: <strong>{{ datos.ram_used }} GB</strong></p>
-            </div>
-            <div class="col">
-                <h2>Multimedia</h2>
-                <p>Reproduciendo: <strong>{{ datos.media_title }}</strong></p>
+            <div class="bar-outer">
+                <div class="bar-fill" id="cpu-bar"></div>
             </div>
         </div>
+
+        <div class="card">
+            <div class="card-label">MEMORY</div>
+            <div class="card-value card-value--ram">
+                <span id="ram-used">0.0</span><span class="unit-sep">/</span><span id="ram-total">0.0</span><span class="unit">GB</span>
+            </div>
+            <div class="bar-outer">
+                <div class="bar-fill" id="ram-bar"></div>
+            </div>
+            <div class="card-sub"><span id="ram-pct">0.0</span>% occupied</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">GPU LOAD</div>
+            <div class="card-value">
+                <span id="gpu-val">0.0</span><span class="unit">%</span>
+            </div>
+            <div class="bar-outer">
+                <div class="bar-fill" id="gpu-bar"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">GPU TEMP</div>
+            <div class="card-value">
+                <span id="gpu-temp">0.0</span><span class="unit">°C</span>
+            </div>
+            <div class="temp-scale">
+                <span class="temp-tick">0</span>
+                <span class="temp-tick">50</span>
+                <span class="temp-tick">100</span>
+            </div>
+            <div class="bar-outer">
+                <div class="bar-fill bar-fill--temp" id="temp-bar"></div>
+            </div>
+        </div>
+
     </div>
+
+    <!-- ── FILA SECUNDARIA ────────────────────────────────── -->
+    <div class="secondary-row">
+
+        <div class="card card-fps">
+            <div class="card-label">FRAMES / SEC</div>
+            <div class="card-value card-value--fps">
+                <span id="fps-val">0.0</span>
+            </div>
+        </div>
+
+        <div class="card card-media">
+            <div class="card-label">NOW PLAYING</div>
+            <div class="media-body">
+                <span class="media-badge" id="media-status">—</span>
+                <span class="media-title" id="media-title">Sin reproducción activa</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="hud-line"></div>
+
+    <!-- ── FOOTER ─────────────────────────────────────────── -->
+    <footer class="hud-footer">
+        AMD RADEON RX 7800 XT &nbsp;·&nbsp; 32 GB DDR5 &nbsp;·&nbsp; WINDOWS 11
+    </footer>
+
+</div>
+
+<script>
+    // Reloj digital
+    function updateClock() {
+        var now = new Date();
+        var pad = function(n) { return String(n).padStart(2, '0'); };
+        document.getElementById('clock').textContent =
+            pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Actualiza solo los nodos que cambian (nunca re-renderiza tarjetas)
+    function setBar(id, pct) {
+        document.getElementById(id).style.width = Math.min(pct || 0, 100).toFixed(1) + '%';
+    }
+
+    function updateDOM(d) {
+        document.getElementById('cpu-val').textContent   = (d.cpu_load   || 0).toFixed(1);
+        setBar('cpu-bar', d.cpu_load);
+
+        document.getElementById('ram-used').textContent  = (d.ram_used   || 0).toFixed(1);
+        document.getElementById('ram-total').textContent = (d.ram_total  || 0).toFixed(1);
+        document.getElementById('ram-pct').textContent   = (d.ram_percent|| 0).toFixed(1);
+        setBar('ram-bar', d.ram_percent);
+
+        document.getElementById('gpu-val').textContent   = (d.gpu_usage  || 0).toFixed(1);
+        setBar('gpu-bar', d.gpu_usage);
+
+        var tempPct = Math.min((d.gpu_temp || 0) / 100 * 100, 100);
+        document.getElementById('gpu-temp').textContent  = (d.gpu_temp   || 0).toFixed(1);
+        setBar('temp-bar', tempPct);
+
+        document.getElementById('fps-val').textContent   = (d.fps        || 0).toFixed(1);
+
+        var badge = document.getElementById('media-status');
+        badge.textContent  = d.media_status || '—';
+        badge.className    = 'media-badge' + (d.media_status === 'Reproduciendo' ? ' playing' : '');
+
+        document.getElementById('media-title').textContent = d.media_title || 'Sin reproducción activa';
+    }
+
+    // SSE con reconexión automática (EventSource nativo de Firefox 68)
+    function connectSSE() {
+        var es = new EventSource('/stream');
+        es.onmessage = function(e) {
+            try { updateDOM(JSON.parse(e.data)); } catch(err) {}
+        };
+        es.onerror = function() {
+            es.close();
+            setTimeout(connectSSE, 3000);
+        };
+    }
+    connectSSE();
+</script>
 </body>
 </html>

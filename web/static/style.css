@@ -1,44 +1,286 @@
-/* Estilos base temporales para el MVP */
-body {
-    background-color: #121212;
-    color: #ffffff;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+/* ── Variables de tema JARVIS HUD ──────────────────────────── */
+:root {
+    --bg:           #000814;
+    --card:         #00111f;
+    --accent:       #00d4ff;
+    --accent-dim:   #003d55;
+    --accent-glow:  rgba(0, 212, 255, 0.12);
+    --text:         #c8eaf5;
+    --text-dim:     #3d6a7a;
+    --font-mono:    'Courier New', 'Lucida Console', monospace;
+}
+
+* {
+    box-sizing: border-box;
     margin: 0;
-    padding: 20px;
+    padding: 0;
 }
 
-.panel-container {
-    max-width: 1200px;
-    margin: 0 auto;
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    height: 100vh;
+    overflow: hidden;
 }
 
-h1 {
-    text-align: center;
-    color: #4CAF50;
-    margin-bottom: 30px;
+/* ── Layout principal ──────────────────────────────────────── */
+.hud {
+    display: grid;
+    grid-template-rows: auto 1px 1fr auto 1px auto;
+    height: 100vh;
+    padding: 14px 18px;
+    gap: 10px;
 }
 
-.columns {
+/* ── Header ────────────────────────────────────────────────── */
+.hud-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand-text {
+    font-family: var(--font-mono);
+    font-size: 1.7rem;
+    font-weight: bold;
+    color: var(--accent);
+    letter-spacing: 0.35em;
+    text-shadow: 0 0 14px var(--accent), 0 0 30px rgba(0, 212, 255, 0.3);
+}
+
+.brand-sub {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 0.28em;
+    display: block;
+    margin-top: 3px;
+}
+
+.header-status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.live-dot {
+    color: var(--accent);
+    font-size: 0.85rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.live-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.22em;
+}
+
+.header-clock {
+    font-family: var(--font-mono);
+    font-size: 1.6rem;
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent);
+    letter-spacing: 0.08em;
+    min-width: 120px;
+    text-align: right;
+}
+
+/* ── Línea separadora con degradado ───────────────────────── */
+.hud-line {
+    background: linear-gradient(
+        to right,
+        transparent 0%,
+        var(--accent-dim) 15%,
+        var(--accent) 50%,
+        var(--accent-dim) 85%,
+        transparent 100%
+    );
+}
+
+/* ── Filas de métricas ─────────────────────────────────────── */
+.metrics-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    align-items: stretch;
+}
+
+.secondary-row {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 10px;
+    min-height: 120px;
+}
+
+/* ── Tarjeta base ──────────────────────────────────────────── */
+.card {
+    background: var(--card);
+    border: 1px solid var(--accent-dim);
+    box-shadow: 0 0 10px var(--accent-glow), inset 0 0 24px rgba(0, 0, 0, 0.6);
+    border-radius: 3px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+}
+
+/* Decoración angular en esquinas */
+.card::before,
+.card::after {
+    content: '';
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-color: var(--accent);
+    border-style: solid;
+}
+.card::before {
+    top: -1px;
+    left: -1px;
+    border-width: 2px 0 0 2px;
+}
+.card::after {
+    bottom: -1px;
+    right: -1px;
+    border-width: 0 2px 2px 0;
+}
+
+.card-label {
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.28em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+}
+
+.card-value {
+    font-family: var(--font-mono);
+    font-size: 2.8rem;
+    color: var(--accent);
+    text-shadow: 0 0 12px rgba(0, 212, 255, 0.45);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+}
+
+/* RAM muestra X/Y GB con fuente un poco más chica */
+.card-value--ram {
+    font-size: 1.9rem;
+    align-items: baseline;
+    display: flex;
+    gap: 0;
+}
+
+.card-value--fps {
+    font-size: 3.6rem;
+}
+
+.unit {
+    font-size: 1rem;
+    color: var(--text-dim);
+    margin-left: 3px;
+}
+
+.unit-sep {
+    font-size: 1.5rem;
+    color: var(--text-dim);
+    margin: 0 5px;
+}
+
+.card-sub {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-dim);
+}
+
+/* ── Barra de progreso ─────────────────────────────────────── */
+.bar-outer {
+    height: 5px;
+    background: rgba(0, 17, 31, 0.8);
+    border: 1px solid var(--accent-dim);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(to right, #004d7a, var(--accent));
+    transition: width 1.5s ease;
+    border-radius: 2px;
+}
+
+/* Temperatura: color cálido al subir */
+.bar-fill--temp {
+    background: linear-gradient(to right, #004d7a, #00aaff, #ff8800);
+}
+
+/* Escala numérica debajo de la barra de temperatura */
+.temp-scale {
     display: flex;
     justify-content: space-between;
-    gap: 20px;
+    font-family: var(--font-mono);
+    font-size: 0.55rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    margin-bottom: -4px;
 }
 
-.col {
-    background-color: #1e1e1e;
-    padding: 20px;
-    border-radius: 8px;
+/* ── Card multimedia ───────────────────────────────────────── */
+.card-media {
+    justify-content: center;
+}
+
+.media-body {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.media-badge {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    padding: 4px 12px;
+    border: 1px solid var(--accent-dim);
+    border-radius: 2px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.media-badge.playing {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.media-title {
+    font-size: 1.05rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     flex: 1;
-    border: 1px solid #333;
+    min-width: 0;
 }
 
-.col h2 {
-    margin-top: 0;
-    color: #90caf9;
-    border-bottom: 1px solid #333;
-    padding-bottom: 10px;
+/* ── Footer ────────────────────────────────────────────────── */
+.hud-footer {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    letter-spacing: 0.2em;
+    text-align: center;
+    padding-bottom: 2px;
 }
 
-p {
-    font-size: 1.2rem;
+/* ── Animaciones (mínimas para el MediaPad) ────────────────── */
+@keyframes pulse {
+    0%,  100% { opacity: 1;   }
+    50%        { opacity: 0.2; }
 }
