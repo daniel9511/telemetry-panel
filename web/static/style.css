@@ -139,7 +139,7 @@ body::after {
 /* ── SECONDARY ROW — FPS + AVATAR + MEDIA ───────────────── */
 .secondary-row {
     display: grid;
-    grid-template-columns: 230px 240px 1fr;
+    grid-template-columns: 230px 1fr;
     gap: 10px;
     padding: 6px 16px 12px;
     flex: 1;
@@ -289,26 +289,11 @@ body::after {
     letter-spacing: 3px;
 }
 
-/* ── AVATAR CARD ─────────────────────────────────────────── */
-.card--avatar {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-}
-
-.avatar-wrap {
+.avatar-img {
     width: 100%;
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.avatar-img {
-    max-width: 100%;
-    max-height: 100%;
     object-fit: contain;
+    object-position: bottom center;
     opacity: 0;
     transition: opacity 0.6s ease;
     image-rendering: pixelated;
@@ -335,55 +320,93 @@ body::after {
 .media-body {
     flex: 1;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 24px;
     margin-top: 16px;
+    min-height: 0;
 }
 
-/* EQ bars — decorative, CSS-only animation when active */
-.media-eq {
+.media-left {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.media-avatar {
+    flex-shrink: 0;
+    width: 160px;
+    height: 160px;
     display: flex;
     align-items: flex-end;
-    gap: 4px;
-    height: 48px;
+    justify-content: center;
+}
+
+/* EQ wave — 16 barras simétricas estilo JARVIS */
+.media-eq {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 52px;
     flex-shrink: 0;
 }
 
 .eqb {
     display: block;
-    width: 5px;
-    height: 100%;
+    width: 3px;
+    border-radius: 2px;
     background: var(--cyan);
-    opacity: 0.25;
-    transform-origin: bottom;
-    transform: scaleY(0.3);
+    opacity: 0.2;
+    transform-origin: center;
+    /* Perfil de onda idle: pico en el centro, cae hacia los bordes */
 }
 
-.eqb:nth-child(1) { transform: scaleY(0.4);  }
-.eqb:nth-child(2) { transform: scaleY(0.75); }
-.eqb:nth-child(3) { transform: scaleY(0.5);  }
-.eqb:nth-child(4) { transform: scaleY(0.9);  }
-.eqb:nth-child(5) { transform: scaleY(0.45); }
-.eqb:nth-child(6) { transform: scaleY(0.65); }
+/* Idle heights — forma de onda simétrica */
+.eqb:nth-child(1)  { height: 18%; }
+.eqb:nth-child(2)  { height: 28%; }
+.eqb:nth-child(3)  { height: 42%; }
+.eqb:nth-child(4)  { height: 58%; }
+.eqb:nth-child(5)  { height: 72%; }
+.eqb:nth-child(6)  { height: 85%; }
+.eqb:nth-child(7)  { height: 95%; }
+.eqb:nth-child(8)  { height: 100%;}
+.eqb:nth-child(9)  { height: 100%;}
+.eqb:nth-child(10) { height: 95%; }
+.eqb:nth-child(11) { height: 85%; }
+.eqb:nth-child(12) { height: 72%; }
+.eqb:nth-child(13) { height: 58%; }
+.eqb:nth-child(14) { height: 42%; }
+.eqb:nth-child(15) { height: 28%; }
+.eqb:nth-child(16) { height: 18%; }
 
-/* When playing: animate bars */
+/* Activo: glow + animación por barra con delays escalonados */
 .media-eq.active .eqb {
-    opacity: 0.75;
-    animation: eq 0.75s ease-in-out infinite alternate;
+    opacity: 0.85;
+    box-shadow: 0 0 5px rgba(0, 212, 255, 0.6);
+    animation: eqwave 0.9s ease-in-out infinite alternate;
 }
 
-/* Stagger each bar */
-.media-eq.active .eqb:nth-child(1) { animation-delay: 0.00s; }
-.media-eq.active .eqb:nth-child(2) { animation-delay: 0.18s; }
-.media-eq.active .eqb:nth-child(3) { animation-delay: 0.06s; }
-.media-eq.active .eqb:nth-child(4) { animation-delay: 0.24s; }
-.media-eq.active .eqb:nth-child(5) { animation-delay: 0.12s; }
-.media-eq.active .eqb:nth-child(6) { animation-delay: 0.30s; }
+.media-eq.active .eqb:nth-child(1)  { animation-delay: 0.00s; animation-duration: 0.85s; }
+.media-eq.active .eqb:nth-child(2)  { animation-delay: 0.07s; animation-duration: 0.72s; }
+.media-eq.active .eqb:nth-child(3)  { animation-delay: 0.14s; animation-duration: 0.90s; }
+.media-eq.active .eqb:nth-child(4)  { animation-delay: 0.05s; animation-duration: 0.68s; }
+.media-eq.active .eqb:nth-child(5)  { animation-delay: 0.21s; animation-duration: 0.80s; }
+.media-eq.active .eqb:nth-child(6)  { animation-delay: 0.11s; animation-duration: 0.75s; }
+.media-eq.active .eqb:nth-child(7)  { animation-delay: 0.03s; animation-duration: 0.95s; }
+.media-eq.active .eqb:nth-child(8)  { animation-delay: 0.18s; animation-duration: 0.70s; }
+.media-eq.active .eqb:nth-child(9)  { animation-delay: 0.09s; animation-duration: 0.88s; }
+.media-eq.active .eqb:nth-child(10) { animation-delay: 0.25s; animation-duration: 0.73s; }
+.media-eq.active .eqb:nth-child(11) { animation-delay: 0.16s; animation-duration: 0.82s; }
+.media-eq.active .eqb:nth-child(12) { animation-delay: 0.06s; animation-duration: 0.78s; }
+.media-eq.active .eqb:nth-child(13) { animation-delay: 0.22s; animation-duration: 0.92s; }
+.media-eq.active .eqb:nth-child(14) { animation-delay: 0.13s; animation-duration: 0.67s; }
+.media-eq.active .eqb:nth-child(15) { animation-delay: 0.08s; animation-duration: 0.86s; }
+.media-eq.active .eqb:nth-child(16) { animation-delay: 0.19s; animation-duration: 0.74s; }
 
-/* scaleY on transform — GPU-accelerated, cheap on old hardware */
-@keyframes eq {
-    from { transform: scaleY(0.15); }
-    to   { transform: scaleY(1.0);  }
+@keyframes eqwave {
+    from { transform: scaleY(0.15); opacity: 0.5; }
+    to   { transform: scaleY(1.0);  opacity: 0.9; }
 }
 
 .media-title {

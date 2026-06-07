@@ -67,6 +67,13 @@ threading.Thread(target=_sensor_loop, daemon=True, name="sensor-loop").start()
 AVATAR_DIR = os.path.join(BASE_DIR, "avatar")
 
 
+@app.route("/avatar/list")
+def avatar_list():
+    import json as _json
+    files = [f for f in os.listdir(AVATAR_DIR) if f.lower().endswith(".png")]
+    return _json.dumps(files), 200, {"Content-Type": "application/json"}
+
+
 @app.route("/avatar/<path:filename>")
 def avatar(filename):
     return send_from_directory(AVATAR_DIR, filename)

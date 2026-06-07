@@ -92,27 +92,36 @@
             </div>
         </div>
 
-        <div class="card card--avatar">
-            <div class="avatar-wrap">
-                <img id="avatar-img" class="avatar-img" src="" alt="KIRA">
-            </div>
-        </div>
-
         <div class="card card--media">
             <div class="card-head">
                 <span class="clabel">NOW PLAYING</span>
                 <span class="media-badge" id="media-status">—</span>
             </div>
             <div class="media-body">
-                <div class="media-eq" id="media-eq">
-                    <span class="eqb"></span>
-                    <span class="eqb"></span>
-                    <span class="eqb"></span>
-                    <span class="eqb"></span>
-                    <span class="eqb"></span>
-                    <span class="eqb"></span>
+                <div class="media-left">
+                    <div class="media-eq" id="media-eq">
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                        <span class="eqb"></span>
+                    </div>
+                    <span id="media-title" class="media-title">Sin reproducción activa</span>
                 </div>
-                <span id="media-title" class="media-title">Sin reproducción activa</span>
+                <div class="media-avatar">
+                    <img id="avatar-img" class="avatar-img" src="" alt="KIRA">
+                </div>
             </div>
         </div>
 
@@ -217,13 +226,10 @@
             d.media_title || 'Sin reproducción activa';
     }
 
-    // Avatar — rotación aleatoria cada 3 minutos con fade
-    var avatarImages = [
-        '/avatar/Gemini_Generated_Image_9p2h4s9p2h4s9p2h.png',
-        '/avatar/Gemini_Generated_Image_ec29l8ec29l8ec29.png',
-        '/avatar/Gemini_Generated_Image_fcibjofcibjofcib.png',
-        '/avatar/Gemini_Generated_Image_jkkx70jkkx70jkkx.png',
-    ];
+    // Avatar — carga lista dinámica del servidor, rota cada 3 min
+    var avatarEl  = document.getElementById('avatar-img');
+    var avatarQueue = [];
+    var avatarIdx   = 0;
 
     function shuffleArr(arr) {
         for (var i = arr.length - 1; i > 0; i--) {
@@ -233,40 +239,31 @@
         return arr;
     }
 
-    var avatarQueue = shuffleArr(avatarImages.slice());
-    var avatarIdx = 0;
-    var avatarEl = document.getElementById('avatar-img');
+    function showAvatar(src) {
+        avatarEl.onload  = function() { avatarEl.style.opacity = '1'; };
+        avatarEl.onerror = function() { avatarEl.style.opacity = '1'; };
+        avatarEl.src = src;
+        if (avatarEl.complete && avatarEl.naturalWidth > 0) avatarEl.style.opacity = '1';
+    }
 
-    function setAvatar(src) {
+    function rotateAvatar() {
+        if (!avatarQueue.length) return;
         avatarEl.style.opacity = '0';
         setTimeout(function() {
-            avatarEl.onload  = function() { avatarEl.style.opacity = '1'; };
-            avatarEl.onerror = function() { avatarEl.style.opacity = '1'; };
-            avatarEl.src = src;
-            // Si ya estaba cacheada, onload no vuelve a disparar
-            if (avatarEl.complete && avatarEl.naturalWidth > 0) {
-                avatarEl.style.opacity = '1';
-            }
+            avatarIdx = (avatarIdx + 1) % avatarQueue.length;
+            if (avatarIdx === 0) shuffleArr(avatarQueue);
+            showAvatar('/avatar/' + avatarQueue[avatarIdx]);
         }, 500);
     }
 
-    // Primera imagen: sin espera de fade-out
-    avatarEl.onload  = function() { avatarEl.style.opacity = '1'; };
-    avatarEl.onerror = function() { avatarEl.style.opacity = '1'; };
-    avatarEl.src = avatarQueue[0];
-
-    // Precargar las restantes para que la rotación sea instantánea
-    avatarImages.forEach(function(src) {
-        var pre = new Image(); pre.src = src;
+    fetch('/avatar/list').then(function(r) { return r.json(); }).then(function(files) {
+        if (!files.length) return;
+        avatarQueue = shuffleArr(files);
+        showAvatar('/avatar/' + avatarQueue[0]);
+        // Precargar
+        files.forEach(function(f) { var p = new Image(); p.src = '/avatar/' + f; });
+        setInterval(rotateAvatar, 180000);
     });
-
-    // Rotar cada 3 minutos
-    setInterval(function() {
-        avatarIdx = (avatarIdx + 1) % avatarQueue.length;
-        // Al completar un ciclo, re-barajar
-        if (avatarIdx === 0) shuffleArr(avatarQueue);
-        setAvatar(avatarQueue[avatarIdx]);
-    }, 180000);
 
     // SSE con reconexión automática
     function connectSSE() {
