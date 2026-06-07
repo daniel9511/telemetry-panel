@@ -45,4 +45,7 @@ Thumbs.db
 
 # archivos antigravity
 .antigravity
-GEMINI.md
+
+# Artefactos de build C# (se regeneran con dotnet publish)
+tools/gpu_sensor/bin/
+tools/gpu_sensor/obj/

@@ -2,7 +2,6 @@ import asyncio
 import ctypes
 import json
 import os
-import struct
 import subprocess
 
 import psutil

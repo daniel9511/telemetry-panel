@@ -9,150 +9,197 @@
 <body>
 <div class="hud">
 
-    <!-- ── HEADER ─────────────────────────────────────────── -->
+    <!-- ── HEADER ──────────────────────────────────────────────── -->
     <header class="hud-header">
-        <div class="header-brand">
-            <span class="brand-text">KIRA</span>
-            <span class="brand-sub">TELEMETRY SYSTEM v1.0</span>
+        <div class="brand">
+            <span class="brand-name">KIRA</span>
+            <span class="brand-sub">TELEMETRY SYSTEM · v1.0</span>
         </div>
-        <div class="header-status">
-            <span class="live-dot">●</span>
-            <span class="live-label">LIVE</span>
+        <div class="hud-status">
+            <span class="live-dot"></span>
+            <span class="live-text">LIVE</span>
+            <span class="status-sep">|</span>
+            <span class="status-info">AMD RX 7800 XT · WIN11 PRO</span>
         </div>
-        <div class="header-clock" id="clock">00:00:00</div>
+        <div id="clock" class="hud-clock">00:00:00</div>
     </header>
 
-    <div class="hud-line"></div>
-
-    <!-- ── MÉTRICAS PRINCIPALES ───────────────────────────── -->
+    <!-- ── MÉTRICAS PRINCIPALES ────────────────────────────────── -->
     <div class="metrics-row">
 
         <div class="card">
-            <div class="card-label">CPU LOAD</div>
-            <div class="card-value">
-                <span id="cpu-val">0.0</span><span class="unit">%</span>
+            <div class="card-head">
+                <span class="clabel">CPU</span>
+                <span class="ctag">PROCESSOR</span>
             </div>
-            <div class="bar-outer">
-                <div class="bar-fill" id="cpu-bar"></div>
+            <div class="cval">
+                <span id="cpu-val" class="cnum">0.0</span><span class="cunit">%</span>
             </div>
+            <div class="cbar-track"><div class="cbar" id="cpu-bar"></div></div>
         </div>
 
         <div class="card">
-            <div class="card-label">MEMORY</div>
-            <div class="card-value card-value--ram">
-                <span id="ram-used">0.0</span><span class="unit-sep">/</span><span id="ram-total">0.0</span><span class="unit">GB</span>
+            <div class="card-head">
+                <span class="clabel">MEMORY</span>
+                <span class="ctag">DDR5 · 32 GB</span>
             </div>
-            <div class="bar-outer">
-                <div class="bar-fill" id="ram-bar"></div>
+            <div class="cval">
+                <span id="ram-used" class="cnum">0.0</span>
+                <span class="csep">/</span>
+                <span id="ram-total" class="cnum cnum--dim">32.0</span>
+                <span class="cunit">GB</span>
             </div>
-            <div class="card-sub"><span id="ram-pct">0.0</span>% occupied</div>
+            <div class="cbar-track"><div class="cbar" id="ram-bar"></div></div>
+            <div class="cdetail"><span id="ram-pct">0.0</span>% USED</div>
         </div>
 
         <div class="card">
-            <div class="card-label">GPU LOAD</div>
-            <div class="card-value">
-                <span id="gpu-val">0.0</span><span class="unit">%</span>
+            <div class="card-head">
+                <span class="clabel">GPU LOAD</span>
+                <span class="ctag">RX 7800 XT</span>
             </div>
-            <div class="bar-outer">
-                <div class="bar-fill" id="gpu-bar"></div>
+            <div class="cval">
+                <span id="gpu-val" class="cnum">0.0</span><span class="cunit">%</span>
             </div>
+            <div class="cbar-track"><div class="cbar" id="gpu-bar"></div></div>
         </div>
 
         <div class="card">
-            <div class="card-label">GPU TEMP</div>
-            <div class="card-value">
-                <span id="gpu-temp">0.0</span><span class="unit">°C</span>
+            <div class="card-head">
+                <span class="clabel">GPU TEMP</span>
+                <span class="ctag">THERMAL</span>
             </div>
-            <div class="temp-scale">
-                <span class="temp-tick">0</span>
-                <span class="temp-tick">50</span>
-                <span class="temp-tick">100</span>
+            <div class="cval">
+                <span id="gpu-temp" class="cnum">0.0</span><span class="cunit">°C</span>
             </div>
-            <div class="bar-outer">
-                <div class="bar-fill bar-fill--temp" id="temp-bar"></div>
-            </div>
+            <div class="cbar-track"><div class="cbar" id="temp-bar"></div></div>
         </div>
 
     </div>
 
-    <!-- ── FILA SECUNDARIA ────────────────────────────────── -->
+    <!-- ── FILA SECUNDARIA ─────────────────────────────────────── -->
     <div class="secondary-row">
 
-        <div class="card card-fps">
-            <div class="card-label" id="fps-label">DISPLAY HZ</div>
-            <div class="card-value card-value--fps">
-                <span id="fps-val">0.0</span><span class="unit" id="fps-unit">Hz</span>
+        <div class="card card--fps">
+            <div class="card-head">
+                <span class="clabel" id="fps-label">DISPLAY HZ</span>
+            </div>
+            <div class="fps-wrap">
+                <span id="fps-val" class="fps-num">0</span>
+                <span id="fps-unit" class="fps-unit">Hz</span>
             </div>
         </div>
 
-        <div class="card card-media">
-            <div class="card-label">NOW PLAYING</div>
-            <div class="media-body">
+        <div class="card card--media">
+            <div class="card-head">
+                <span class="clabel">NOW PLAYING</span>
                 <span class="media-badge" id="media-status">—</span>
-                <span class="media-title" id="media-title">Sin reproducción activa</span>
+            </div>
+            <div class="media-body">
+                <div class="media-eq" id="media-eq">
+                    <span class="eqb"></span>
+                    <span class="eqb"></span>
+                    <span class="eqb"></span>
+                    <span class="eqb"></span>
+                    <span class="eqb"></span>
+                    <span class="eqb"></span>
+                </div>
+                <span id="media-title" class="media-title">Sin reproducción activa</span>
             </div>
         </div>
 
     </div>
 
-    <div class="hud-line"></div>
-
-    <!-- ── FOOTER ─────────────────────────────────────────── -->
+    <!-- ── FOOTER ──────────────────────────────────────────────── -->
     <footer class="hud-footer">
-        AMD RADEON RX 7800 XT &nbsp;·&nbsp; 32 GB DDR5 &nbsp;·&nbsp; WINDOWS 11
+        <span>AMD RADEON RX 7800 XT</span>
+        <span class="fdot">·</span>
+        <span>32 GB DDR5</span>
+        <span class="fdot">·</span>
+        <span>WINDOWS 11 PRO</span>
+        <span class="fdot">·</span>
+        <span>KIRA TELEMETRY</span>
     </footer>
 
 </div>
 
 <script>
     // Reloj digital
-    function updateClock() {
-        var now = new Date();
-        var pad = function(n) { return String(n).padStart(2, '0'); };
+    function tick() {
+        var d = new Date(), z = function(n) { return String(n).padStart(2, '0'); };
         document.getElementById('clock').textContent =
-            pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+            z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds());
     }
-    setInterval(updateClock, 1000);
-    updateClock();
+    setInterval(tick, 1000);
+    tick();
 
-    // Actualiza solo los nodos que cambian (nunca re-renderiza tarjetas)
-    function setBar(id, pct) {
-        document.getElementById(id).style.width = Math.min(pct || 0, 100).toFixed(1) + '%';
+    // Color de barra según carga %
+    function loadColor(p) {
+        if (p > 80) return '#ff2244';
+        if (p > 60) return '#ffaa00';
+        return '#00d4ff';
     }
 
+    // Color de barra de temperatura (°C directo, no %)
+    function tempColor(t) {
+        if (t > 80) return '#ff2244';
+        if (t > 65) return '#ffaa00';
+        return '#00d4ff';
+    }
+
+    function setBar(id, pct, colorFn) {
+        var el = document.getElementById(id);
+        var p = Math.min(pct || 0, 100);
+        el.style.width = p.toFixed(1) + '%';
+        el.style.backgroundColor = colorFn(p);
+    }
+
+    // Actualiza solo los nodos que cambian — nunca re-renderiza tarjetas
     function updateDOM(d) {
-        document.getElementById('cpu-val').textContent   = (d.cpu_load   || 0).toFixed(1);
-        setBar('cpu-bar', d.cpu_load);
+        // CPU
+        document.getElementById('cpu-val').textContent = (d.cpu_load || 0).toFixed(1);
+        setBar('cpu-bar', d.cpu_load, loadColor);
 
-        document.getElementById('ram-used').textContent  = (d.ram_used   || 0).toFixed(1);
-        document.getElementById('ram-total').textContent = (d.ram_total  || 0).toFixed(1);
-        document.getElementById('ram-pct').textContent   = (d.ram_percent|| 0).toFixed(1);
-        setBar('ram-bar', d.ram_percent);
+        // RAM
+        document.getElementById('ram-used').textContent  = (d.ram_used    || 0).toFixed(1);
+        document.getElementById('ram-total').textContent = (d.ram_total   || 0).toFixed(1);
+        document.getElementById('ram-pct').textContent   = (d.ram_percent || 0).toFixed(1);
+        setBar('ram-bar', d.ram_percent, loadColor);
 
-        document.getElementById('gpu-val').textContent   = (d.gpu_usage  || 0).toFixed(1);
-        setBar('gpu-bar', d.gpu_usage);
+        // GPU load
+        document.getElementById('gpu-val').textContent = (d.gpu_usage || 0).toFixed(1);
+        setBar('gpu-bar', d.gpu_usage, loadColor);
 
-        var tempPct = Math.min((d.gpu_temp || 0) / 100 * 100, 100);
-        document.getElementById('gpu-temp').textContent  = (d.gpu_temp   || 0).toFixed(1);
-        setBar('temp-bar', tempPct);
+        // GPU temp — la barra usa °C mapeado a 0-100
+        var tc = d.gpu_temp || 0;
+        document.getElementById('gpu-temp').textContent = tc.toFixed(1);
+        var tb = document.getElementById('temp-bar');
+        tb.style.width = Math.min(tc, 100).toFixed(1) + '%';
+        tb.style.backgroundColor = tempColor(tc);
 
+        // FPS / Hz
         var isGame = d.fps_source === 'game';
-        document.getElementById('fps-val').textContent   = (d.fps || 0).toFixed(1);
+        document.getElementById('fps-val').textContent   = (d.fps || 0).toFixed(isGame ? 1 : 0);
         document.getElementById('fps-unit').textContent  = isGame ? 'FPS' : 'Hz';
         document.getElementById('fps-label').textContent = isGame ? 'FRAMES / SEC' : 'DISPLAY HZ';
 
+        // Multimedia
+        var st = d.media_status || '';
         var badge = document.getElementById('media-status');
-        badge.textContent  = d.media_status || '—';
-        badge.className    = 'media-badge' + (d.media_status === 'Reproduciendo' ? ' playing' : '');
-
-        document.getElementById('media-title').textContent = d.media_title || 'Sin reproducción activa';
+        badge.textContent = st || '—';
+        badge.className = 'media-badge' +
+            (st === 'Reproduciendo' ? ' playing' : st === 'Pausado' ? ' paused' : '');
+        document.getElementById('media-eq').className =
+            'media-eq' + (st === 'Reproduciendo' ? ' active' : '');
+        document.getElementById('media-title').textContent =
+            d.media_title || 'Sin reproducción activa';
     }
 
-    // SSE con reconexión automática (EventSource nativo de Firefox 68)
+    // SSE con reconexión automática
     function connectSSE() {
         var es = new EventSource('/stream');
         es.onmessage = function(e) {
-            try { updateDOM(JSON.parse(e.data)); } catch(err) {}
+            try { updateDOM(JSON.parse(e.data)); } catch(x) {}
         };
         es.onerror = function() {
             es.close();
